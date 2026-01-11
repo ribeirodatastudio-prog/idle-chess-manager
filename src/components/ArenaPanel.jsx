@@ -20,18 +20,18 @@ export const ArenaPanel = ({
       {/* Background Visuals */}
       <div className="absolute inset-0 opacity-5 pointer-events-none bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-gray-700 via-gray-900 to-black"></div>
 
-      <h2 className="text-2xl font-bold mb-4 text-center text-gray-100 relative z-10">
+      <h2 className="text-xl sm:text-2xl font-bold mb-4 text-center text-gray-100 relative z-10 shrink-0">
         Tournament <span className="text-yellow-500">#{currentLevel}</span>
       </h2>
 
       {/* Evaluation Bar */}
-      <div className="mb-8 relative z-10">
+      <div className="mb-4 sm:mb-8 relative z-10 shrink-0">
         <div className="flex justify-between text-xs text-gray-400 mb-1 font-mono">
-          <span className="text-red-500 font-bold">BLACK WINS (-10)</span>
+          <span className="text-red-500 font-bold">BLACK (-10)</span>
           <span>{clampedEval > 0 ? '+' : ''}{clampedEval.toFixed(2)}</span>
-          <span className="text-green-500 font-bold">WHITE WINS (+10)</span>
+          <span className="text-green-500 font-bold">WHITE (+10)</span>
         </div>
-        <div className="h-6 bg-gray-700 rounded-full overflow-hidden relative border border-gray-600 shadow-inner">
+        <div className="h-4 sm:h-6 bg-gray-700 rounded-full overflow-hidden relative border border-gray-600 shadow-inner">
           {/* Middle Marker */}
           <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-gray-500 z-20"></div>
           
@@ -47,7 +47,7 @@ export const ArenaPanel = ({
                 #22c55e 100%)`
              }}
           ></div>
-           {/* Alternative visual: A slider thumb */}
+           {/* Slider Thumb */}
            <div 
              className="absolute top-0 bottom-0 w-2 bg-white shadow-[0_0_10px_white] transition-all duration-500 ease-in-out z-30 transform -translate-x-1/2"
              style={{ left: `${barPercentage}%` }}
@@ -58,24 +58,27 @@ export const ArenaPanel = ({
       {/* Main Action Area */}
       <div className="flex-grow flex flex-col justify-center items-center relative z-10">
         {!active ? (
-          <div className="text-center animate-fade-in">
-            <p className="text-gray-400 mb-6 max-w-xs mx-auto">
+          <div className="text-center animate-fade-in w-full flex flex-col items-center">
+            <p className="text-gray-400 mb-4 text-sm sm:text-base max-w-xs mx-auto">
               Prepare your stats. The next opponent awaits.
             </p>
+
+            {/* Sticky/Fixed Bottom Logic for Mobile could go here, but using flex-grow + shrink is cleaner */}
             <button
               onClick={onStartTournament}
-              className="bg-green-600 hover:bg-green-500 text-white font-bold py-4 px-8 rounded-full shadow-[0_0_20px_rgba(34,197,94,0.4)] transform hover:scale-105 transition-all"
+              className="bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-8 w-full sm:w-auto rounded-lg sm:rounded-full shadow-[0_0_20px_rgba(34,197,94,0.4)] transform hover:scale-105 transition-all text-lg"
             >
               Start Match
             </button>
+
             {result && (
-              <div className={`mt-4 text-xl font-bold ${result === 'win' ? 'text-green-400' : 'text-red-400'}`}>
-                Last Match: {result.toUpperCase()}
+              <div className={`mt-4 text-lg sm:text-xl font-bold ${result === 'win' ? 'text-green-400' : 'text-red-400'}`}>
+                Result: {result.toUpperCase()}
               </div>
             )}
           </div>
         ) : (
-          <div className="w-full max-w-md bg-gray-800 p-6 rounded-lg border border-gray-700 shadow-xl">
+          <div className="w-full max-w-md bg-gray-800 p-4 sm:p-6 rounded-lg border border-gray-700 shadow-xl">
             <div className="flex justify-between items-center mb-4 border-b border-gray-700 pb-4">
               <div className="text-left">
                 <div className="text-xs text-gray-500 uppercase tracking-wider">Player</div>
@@ -87,7 +90,7 @@ export const ArenaPanel = ({
               </div>
               <div className="text-right">
                 <div className="text-xs text-gray-500 uppercase tracking-wider">Opponent</div>
-                <div className="text-red-400 font-bold text-lg">Rating {opponentStats?.totalPower || '?'}</div>
+                <div className="text-red-400 font-bold text-lg">{opponentStats?.totalPower || '?'}</div>
               </div>
             </div>
             
