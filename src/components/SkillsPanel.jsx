@@ -34,15 +34,10 @@ const SkillCard = ({ skill, owned, canAfford, onPurchase }) => {
   );
 };
 
-export const SkillsPanel = ({ skills, derivedStats, onPurchase }) => {
-  const { availableAbilityPoints, totalAbilityPoints } = derivedStats;
-  
-  // Group skills by category for better layout
-  const categories = ['Opening', 'Midgame', 'Sacrifices', 'Tactics', 'Endgame'];
-  
-  return (
-    <div className="p-4">
-       <div className="mb-4 text-gray-300 bg-gray-800 p-3 rounded text-center border border-gray-700">
+export const SkillsHeader = ({ derivedStats }) => {
+    const { availableAbilityPoints, totalAbilityPoints } = derivedStats;
+    return (
+        <div className="mb-4 text-gray-300 bg-gray-800 p-3 rounded text-center border border-gray-700">
             <div>Ability Points</div>
             <div className="text-purple-400 font-mono text-xl">
                 {availableAbilityPoints} <span className="text-gray-500 text-sm">/ {totalAbilityPoints}</span>
@@ -52,7 +47,17 @@ export const SkillsPanel = ({ skills, derivedStats, onPurchase }) => {
                 <span>Earn 1 AP per 10 Tournaments</span>
             </div>
       </div>
+    );
+};
 
+export const SkillsPanel = ({ skills, derivedStats, onPurchase }) => {
+  const { availableAbilityPoints } = derivedStats;
+
+  // Group skills by category for better layout
+  const categories = ['Opening', 'Midgame', 'Sacrifices', 'Tactics', 'Endgame'];
+
+  return (
+    <div className="p-4 pt-0">
       <div className="space-y-6">
           {categories.map(cat => {
               const catSkills = SKILLS.filter(s => s.category === cat);
