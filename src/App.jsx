@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useGameState } from './hooks/useGameState';
 import { generateOpponentStats, calculateMove, PHASES } from './logic/simulation';
-import { StatsPanel } from './components/StatsPanel';
+import { StatsPanel, StatsHeader } from './components/StatsPanel';
 import { ArenaPanel } from './components/ArenaPanel';
 import { LogsPanel } from './components/LogsPanel';
-import { SkillsPanel } from './components/SkillsPanel';
+import { SkillsPanel, SkillsHeader } from './components/SkillsPanel';
 
 function App() {
   const { state, derivedStats, actions } = useGameState();
@@ -142,7 +142,7 @@ function App() {
         
         {/* Left Panel: Upgrades & Skills (3 cols) */}
         <div className="lg:col-span-3 h-full flex flex-col overflow-hidden bg-gray-900 rounded-xl border border-gray-800 shadow-2xl">
-           <div className="flex border-b border-gray-700">
+           <div className="flex border-b border-gray-700 shrink-0">
                <button 
                   onClick={() => setActiveTab('stats')}
                   className={`flex-1 py-3 font-bold text-center transition-colors ${activeTab === 'stats' ? 'bg-gray-800 text-blue-400 border-b-2 border-blue-400' : 'text-gray-500 hover:bg-gray-800/50'}`}
@@ -157,24 +157,29 @@ function App() {
                </button>
            </div>
            
-           <div className="flex-grow overflow-hidden relative">
+           {/* Sticky Header Area */}
+           <div className="p-4 pb-0 bg-gray-900 z-10 shrink-0">
                {activeTab === 'stats' ? (
-                   <div className="absolute inset-0 overflow-y-auto">
-                       <StatsPanel 
+                   <StatsHeader resources={state.resources} playerElo={derivedStats.playerElo} />
+               ) : (
+                   <SkillsHeader derivedStats={derivedStats} />
+               )}
+           </div>
+
+           {/* Scrollable Content Area */}
+           <div className="flex-1 overflow-y-auto pb-20">
+               {activeTab === 'stats' ? (
+                   <StatsPanel
                         stats={state.stats} 
                         resources={state.resources} 
                         onUpgrade={actions.upgradeStat} 
-                        playerElo={derivedStats.playerElo}
-                      />
-                   </div>
+                   />
                ) : (
-                   <div className="absolute inset-0 overflow-y-auto">
-                        <SkillsPanel 
-                            skills={state.skills} 
-                            derivedStats={derivedStats}
-                            onPurchase={actions.purchaseSkill}
-                        />
-                   </div>
+                    <SkillsPanel
+                        skills={state.skills}
+                        derivedStats={derivedStats}
+                        onPurchase={actions.purchaseSkill}
+                    />
                )}
            </div>
         </div>

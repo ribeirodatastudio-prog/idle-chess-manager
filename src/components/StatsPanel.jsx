@@ -36,20 +36,24 @@ const StatRow = ({ statKey, level, resources, onUpgrade }) => {
   );
 };
 
-export const StatsPanel = ({ stats, resources, onUpgrade, playerElo }) => {
+export const StatsHeader = ({ resources, playerElo }) => {
   return (
-    <div className="p-4">
-      <div className="mb-4 space-y-2">
-          <div className="text-gray-300 bg-gray-800 p-3 rounded text-center border border-gray-700">
-            <div>Study Time</div>
-            <div className="text-blue-300 font-mono text-xl">{formatNumber(resources.studyTime)}</div>
-          </div>
-          <div className="text-gray-300 bg-gray-800 p-3 rounded text-center border border-gray-700">
-            <div>Player Elo</div>
-            <div className="text-yellow-400 font-mono text-xl">{playerElo}</div>
-          </div>
-      </div>
-      
+    <div className="mb-4 space-y-2">
+        <div className="text-gray-300 bg-gray-800 p-3 rounded text-center border border-gray-700">
+          <div>Study Time</div>
+          <div className="text-blue-300 font-mono text-xl">{formatNumber(resources.studyTime)}</div>
+        </div>
+        <div className="text-gray-300 bg-gray-800 p-3 rounded text-center border border-gray-700">
+          <div>Player Elo</div>
+          <div className="text-yellow-400 font-mono text-xl">{playerElo}</div>
+        </div>
+    </div>
+  );
+};
+
+export const StatsPanel = ({ stats, resources, onUpgrade }) => {
+  return (
+    <div className="p-4 pt-0">
       <div className="space-y-2">
         {Object.keys(stats).map(key => (
           <StatRow 
