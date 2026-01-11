@@ -1,4 +1,4 @@
-import { STATS } from './math';
+import { STATS } from './math.js';
 
 export const PHASES = {
   OPENING: { start: 1, end: 10, name: 'Opening' },
@@ -7,6 +7,33 @@ export const PHASES = {
 };
 
 const getRandom = (min, max) => Math.random() * (max - min) + min;
+
+const applyModeWeights = (stats, mode) => {
+    // Clone stats to avoid mutation
+    const s = { ...stats };
+
+    // Default weights (Rapid)
+    let theoryWeight = 1.0;
+    let instinctWeight = 1.0;
+
+    if (mode === 'classical') {
+        theoryWeight = 1.5;
+        instinctWeight = 0.6;
+    } else if (mode === 'blitz') {
+        theoryWeight = 0.6;
+        instinctWeight = 1.8;
+    }
+
+    // Apply weights
+    s.opening *= theoryWeight;
+    s.midgame *= theoryWeight;
+    s.endgame *= theoryWeight;
+
+    s.tactics *= instinctWeight;
+    s.sacrifices *= instinctWeight;
+
+    return s;
+};
 
 export const generateOpponentStats = (wins) => {
   // Base Total: 10 * (1.25 ^ wins)
@@ -45,15 +72,14 @@ export const generateOpponentStats = (wins) => {
   const totalPower = Object.values(stats).reduce((a, b) => a + b, 0);
   const opponentElo = 100 + totalPower;
   
-  // Note: Previous code used 'totalPower' as the rating number (10, 15...).
-  // Now we return opponentElo (110, 115...) as distinct from stats sum.
-  // We'll keep totalPower as the raw stats sum for internal consistency if needed,
-  // but the UI might want to show ELO.
-  
   return { stats, totalPower: opponentElo, rawStatsSum: totalPower };
 };
 
-export const calculateMove = (moveNumber, playerStats, enemyStats, currentEval, skills = {}, phase1Won = false, move11Eval = 0) => {
+export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, currentEval, skills = {}, phase1Won = false, move11Eval = 0, mode = 'rapid') => {
+  // Apply Mode Weights first
+  const playerStats = applyModeWeights(rawPlayerStats, mode);
+  const enemyStats = applyModeWeights(rawEnemyStats, mode);
+
   let phase = '';
   let playerBaseSum = 0;
   let enemyBaseSum = 0;
@@ -65,7 +91,9 @@ export const calculateMove = (moveNumber, playerStats, enemyStats, currentEval, 
     
     // Main Line (Category A): Opening >= 100 -> +10% Power
     let openingPower = playerStats.opening;
-    if (skills.main_line && playerStats.opening >= 100) {
+    // Note: Use RAW stats for threshold checks or Weighted? Usually raw for logic gates.
+    // "Opening >= 100" refers to the level.
+    if (skills.main_line && rawPlayerStats.opening >= 100) {
         openingPower *= 1.1;
     }
     
@@ -94,7 +122,6 @@ export const calculateMove = (moveNumber, playerStats, enemyStats, currentEval, 
         midgamePower *= 1.1;
     }
     // Counter-Play (Category B): Losing at Move 11 -> +15% Midgame Power
-    // We check move11Eval passed from simulation state
     if (skills.counter_play && move11Eval < 0) {
         midgamePower *= 1.15;
     }
@@ -203,14 +230,13 @@ export const calculateMove = (moveNumber, playerStats, enemyStats, currentEval, 
     const sacMax = skills.tals_spirit ? 3.5 : 3.0;
     
     // Sacrifice Swing
+    // Note: Use weighted sacrifices or raw? Weighted makes sense for combat.
     let rawSwing = (playerStats.sacrifices * 0.05) * getRandom(-2.0, sacMax);
     
     // Chaos Theory (Category C): Scale by Enemy Tier
     if (skills.chaos_theory) {
-        // Enemy Tier = Floor(EnemyElo / 500)
-        // Enemy Elo is 100 + Sum(Stats). We need total enemy stats here.
-        // We only have broken down stats. Recalculate sum.
-        const enemyTotalStats = Object.values(enemyStats).reduce((a, b) => a + b, 0);
+        // We use raw enemy stats to determine "tier" (Elo is based on raw stats)
+        const enemyTotalStats = Object.values(rawEnemyStats).reduce((a, b) => a + b, 0);
         const enemyElo = 100 + enemyTotalStats;
         const tier = Math.floor(enemyElo / 500);
         rawSwing *= (1 + (tier * 0.1));
@@ -238,17 +264,26 @@ export const calculateMove = (moveNumber, playerStats, enemyStats, currentEval, 
       }
   }
   
-  const newEval = currentEval + delta;
+  let newEval = currentEval + delta;
+
+  // Endgame Snowball Effect: Multiplier if advantage > 1.0
+  if (phase === PHASES.ENDGAME.name) {
+      if (newEval > 1.0) {
+          newEval *= 1.1; // 10% bonus for winning side
+      } else if (newEval < -1.0) {
+          newEval *= 1.1; // 10% penalty (bonus for opponent)
+      }
+  }
   
   // Resolution Logic
   let result = null; // 'win', 'loss', 'draw', or null (continue)
   
-  // Mate Net (Category D): Win Condition 8.0
-  const winThreshold = skills.mate_net ? 8.0 : 10.0;
+  // Mate Net (Category D): Win Condition 8.0 (Lowered from 10.0 -> 8.0, and Mate Net 6.0)
+  const winThreshold = skills.mate_net ? 6.0 : 8.0;
   
   // 1. Check Win/Loss Bounds
   if (newEval >= winThreshold) result = 'win';
-  else if (newEval <= -10) result = 'loss';
+  else if (newEval <= -winThreshold) result = 'loss';
   
   // 2. Check Draw Condition A (Remis Zone)
   // Move 30 to 49, Eval between -1.0 and +1.0 -> 15% chance
@@ -257,12 +292,6 @@ export const calculateMove = (moveNumber, playerStats, enemyStats, currentEval, 
     
     // Fortress (Category E): Eval [-5, -2] -> Draw Chance 40%
     if (skills.fortress && newEval >= -5.0 && newEval <= -2.0) {
-        // Override standard logic? Or addition? 
-        // Standard logic applies only -1 to 1.
-        // Fortress adds a NEW condition range? 
-        // "Draw Chance per turn increases from 15% to 40%". 
-        // Implicitly means we check this range instead/also.
-        // Since [-5, -2] is outside [-1, 1], this is a separate check.
         drawChance = 0.4;
         if (Math.random() < drawChance) {
             result = 'draw';
@@ -276,10 +305,28 @@ export const calculateMove = (moveNumber, playerStats, enemyStats, currentEval, 
     }
   }
   
-  // 3. Check Draw Condition B (Move 50 Limit)
+  // 3. Check Draw Condition B (Move 50 Limit) with Tie-Breaker
   if (!result && moveNumber >= 50) {
-    result = 'draw';
-    logMessage = 'Game drawn by move limit (50).';
+    // Tie-Breaker Logic: Compare Tactical Aggression (Weighted or Raw?)
+    // "Higher total Tactics + Sacrifices".
+    // Usually rules refer to the underlying attribute, but "Tricks don't work well" in classical
+    // might mean the tie breaker should also use weighted values.
+    // Let's use weighted to be consistent with mode logic.
+
+    const playerAggression = playerStats.tactics + playerStats.sacrifices;
+    const enemyAggression = enemyStats.tactics + enemyStats.sacrifices;
+
+    if (playerAggression > enemyAggression) {
+        result = 'win';
+        logMessage = 'Draw avoided! Player wins by Tactical Superiority.';
+    } else if (enemyAggression > playerAggression) {
+        result = 'loss';
+        logMessage = 'Draw avoided! Opponent wins by Tactical Superiority.';
+    } else {
+        // True Draw
+        result = 'draw';
+        logMessage = 'Game drawn by move limit (50). Stats identical.';
+    }
   }
   
   return {

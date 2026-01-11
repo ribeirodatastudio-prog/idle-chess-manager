@@ -72,12 +72,17 @@ Matches are simulated move-by-move. The outcome is determined by comparing "Powe
     *   `NewEval = CurrentEval + Delta`
 
 *   **Win Conditions:**
-    *   **Win:** `Eval >= 10.0` (or `8.0` if *Mate Net* skill is owned).
-    *   **Loss:** `Eval <= -10.0`.
+    *   **Win:** `Eval >= 8.0` (or `6.0` if *Mate Net* skill is owned).
+    *   **Loss:** `Eval <= -8.0`.
+
+*   **Endgame Snowball:**
+    *   In the Endgame phase (Moves 31+), if a side has an advantage (`abs(Eval) > 1.0`), their advantage is multiplied by **1.1x** (10%) per turn. This prevents long, drawn-out endgames by forcing a decisive result.
 
 *   **Draw Conditions:**
     *   **Deadlock:** Between Move 30-49, if Eval is between `-1.0` and `1.0`, there is a **15% chance** per turn to draw. (40% chance if *Fortress* skill is active and Eval is between `-5.0` and `-2.0`).
-    *   **Move Limit:** If Move 50 is reached without a result, the game is a Draw.
+    *   **Move Limit & Tie-Breaker:** If Move 50 is reached without a result:
+        *   **Tie-Breaker:** The side with the higher total **Tactics + Sacrifices** wins.
+        *   **Draw:** If stats are identical, the game ends in a Draw.
 
 ## Technical & Setup
 

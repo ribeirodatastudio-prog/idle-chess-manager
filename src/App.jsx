@@ -31,10 +31,14 @@ function App() {
   // Ref for the simulation interval
   const simulationInterval = useRef(null);
 
-  // Start Tournament Handler
-  const handleStartTournament = () => {
-    // Generate opponent based on current wins
-    const { stats, totalPower } = generateOpponentStats(state.tournament.wins);
+  // Start Tournament Handler (Updated for Modes)
+  const handleStartTournament = (mode) => {
+    // Generate opponent based on current wins for that mode
+    // wins = rank - 1
+    const currentModeRank = state.tournament.ranks[mode];
+    const winsForMode = currentModeRank - 1;
+
+    const { stats, totalPower } = generateOpponentStats(winsForMode);
     
     // Check for Gambiteer skill
     const startEval = state.skills['gambiteer'] ? -0.5 : 0.3;
@@ -53,7 +57,7 @@ function App() {
     setLogs([]);
     
     // Update global state
-    actions.startTournament({ stats, totalPower });
+    actions.startTournament({ stats, totalPower }, mode);
   };
 
   // Simulation Loop
@@ -78,7 +82,8 @@ function App() {
           currentSimState.evalBar,
           state.skills,
           currentSimState.phase1Won,
-          currentSimState.move11Eval
+          currentSimState.move11Eval,
+          state.tournament.activeMode // Pass the active mode
         );
         
         // Construct Log Message
@@ -134,7 +139,7 @@ function App() {
     return () => {
       if (simulationInterval.current) clearInterval(simulationInterval.current);
     };
-  }, [state.tournament.active, state.tournament.opponentStats, state.stats, state.skills, actions]); // Dependencies
+  }, [state.tournament.active, state.tournament.opponentStats, state.tournament.activeMode, state.stats, state.skills, actions]); // Dependencies
 
   return (
     <div className="min-h-screen bg-black text-gray-100 font-sans selection:bg-blue-500 selection:text-white p-2 sm:p-4 overflow-hidden">
@@ -202,7 +207,7 @@ function App() {
       
       {/* Footer / Version */}
       <div className="text-center text-gray-800 text-xs fixed bottom-1 left-0 right-0 pointer-events-none">
-        Chess Career Idle v0.2 • Autosaving
+        Chess Career Idle v0.3 • Game Modes Added
       </div>
     </div>
   );

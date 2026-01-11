@@ -18,11 +18,16 @@ const INITIAL_STATS = {
 
 const INITIAL_SKILLS = {}; // id -> boolean
 
+// Updated Tournament Structure
 const INITIAL_TOURNAMENT = {
-  wins: 0,
   active: false,
   opponentStats: null,
-  currentLevel: 1
+  activeMode: null, // 'rapid', 'blitz', 'classical'
+  ranks: {
+    rapid: 1,
+    blitz: 1,
+    classical: 1
+  }
 };
 
 // Helper to read save safely
@@ -42,8 +47,14 @@ const calculateTotalPoints = (elo, wins) => {
     return fromElo + fromWins;
 };
 
+// Helper to get total wins from ranks
+const getTotalWins = (ranks) => {
+    // ranks start at 1. Wins = rank - 1.
+    return (ranks.rapid - 1) + (ranks.blitz - 1) + (ranks.classical - 1);
+};
+
 export const useGameState = () => {
-  // 1. Resources State with Offline Gain Logic
+  // 1. Resources State
   const [resources, setResources] = useState(() => {
     const saved = loadSave();
     let initial = { ...INITIAL_RESOURCES };
@@ -53,7 +64,15 @@ export const useGameState = () => {
 
         // Calculate Offline Gain
         if (saved.lastSaveTime && saved.tournament) {
-            const offlineGain = calculateOfflineGain(saved.lastSaveTime, saved.tournament.wins || 0);
+            // Handle migration from old structure if necessary
+            let wins = 0;
+            if (saved.tournament.ranks) {
+                wins = getTotalWins(saved.tournament.ranks);
+            } else if (saved.tournament.wins) {
+                wins = saved.tournament.wins;
+            }
+
+            const offlineGain = calculateOfflineGain(saved.lastSaveTime, wins);
             if (offlineGain > 0) {
                 console.log(`Offline Gain: ${offlineGain}`);
                 initial.studyTime += offlineGain;
@@ -78,7 +97,21 @@ export const useGameState = () => {
   // 4. Tournament State
   const [tournament, setTournament] = useState(() => {
     const saved = loadSave();
-    return (saved && saved.tournament) ? { ...INITIAL_TOURNAMENT, ...saved.tournament } : { ...INITIAL_TOURNAMENT };
+    if (saved && saved.tournament) {
+        // Migration logic: If old structure (wins/currentLevel) exists but ranks doesn't
+        if (!saved.tournament.ranks) {
+            return {
+                ...INITIAL_TOURNAMENT,
+                ranks: {
+                    rapid: saved.tournament.currentLevel || 1,
+                    blitz: 1,
+                    classical: 1
+                }
+            };
+        }
+        return { ...INITIAL_TOURNAMENT, ...saved.tournament };
+    }
+    return { ...INITIAL_TOURNAMENT };
   });
 
   // Ref to hold current state for saving
@@ -104,12 +137,16 @@ export const useGameState = () => {
       return () => clearInterval(interval);
   }, [saveGame]);
 
-  // Trigger-Save on Important Changes (Stats, Skills, Tournament)
+  // Derived Values
+  const totalWins = useMemo(() => {
+      return getTotalWins(tournament.ranks);
+  }, [tournament.ranks]);
+
+  // Trigger-Save on Important Changes
   useEffect(() => {
       saveGame();
       // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stats, skills, tournament.wins, tournament.active]);
-  // Note: We intentionally don't include resources here to avoid saving on every tick
+  }, [stats, skills, totalWins, tournament.active]);
 
   // Derived Stats
   const playerElo = useMemo(() => {
@@ -118,8 +155,8 @@ export const useGameState = () => {
   }, [stats]);
 
   const totalAbilityPoints = useMemo(() => {
-    return calculateTotalPoints(playerElo, tournament.wins);
-  }, [playerElo, tournament.wins]);
+    return calculateTotalPoints(playerElo, totalWins);
+  }, [playerElo, totalWins]);
 
   const usedAbilityPoints = useMemo(() => {
     return Object.keys(skills).reduce((total, skillId) => {
@@ -137,7 +174,20 @@ export const useGameState = () => {
   useEffect(() => {
     const interval = setInterval(() => {
       setResources(prev => {
-        const income = calculatePassiveIncomePerSecond(tournament.wins);
+        // Use totalWins for income
+        // We need to access totalWins inside here.
+        // Can't use `totalWins` from outer scope easily in interval if we want to avoid recreating interval.
+        // But `tournament` changes when ranks change.
+        // Let's rely on prev state? No, tournament is separate state.
+
+        // Better: Use `tournament` in dependency array and recreate interval?
+        // Or calculate totalWins from `prevTournament` ref if we had one.
+        // Actually, we can use the `stateRef` which is always current!
+
+        const currentRanks = stateRef.current.tournament.ranks;
+        const currentWins = getTotalWins(currentRanks);
+
+        const income = calculatePassiveIncomePerSecond(currentWins);
         return {
           ...prev,
           studyTime: prev.studyTime + income
@@ -145,26 +195,16 @@ export const useGameState = () => {
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [tournament.wins]);
+  }, []); // Empty dependency since we use ref
 
   // Actions
   const upgradeStat = useCallback((statName) => {
     setResources(prevRes => {
-        // We need access to current stats inside this updater or use the stats from scope?
-        // Using stats from scope is fine because if stats change, the callback is recreated (dep array).
-        // BUT for precise calculation, we should probably access the *ref* or careful dependency.
-        // Actually, let's use the functional update pattern but we need the cost.
-        // The cost depends on the *current level*.
-        
-        // Issue: If we use `stats` from closure, and `upgradeStat` is called, it's fine.
-        // But we need to update both resources AND stats.
-        
         const currentLevel = stats[statName];
         const hasPrepFiles = skills['prep_files'];
         const cost = calculateUpgradeCost(currentLevel, hasPrepFiles && statName === 'opening');
 
         if (prevRes.studyTime >= cost) {
-            // Update Stats
             setStats(prevStats => ({
                 ...prevStats,
                 [statName]: prevStats[statName] + 1
@@ -180,10 +220,7 @@ export const useGameState = () => {
   }, [stats, skills]);
 
   const purchaseSkill = useCallback((skillId) => {
-      // Logic for AP check needs latest data.
-      // We can use the derived `availableAbilityPoints` from closure.
       const skill = getSkillById(skillId);
-
       if (skill && !skills[skillId] && availableAbilityPoints >= skill.cost) {
           setSkills(prev => ({
               ...prev,
@@ -192,41 +229,53 @@ export const useGameState = () => {
       }
   }, [skills, availableAbilityPoints]);
 
-  const startTournament = useCallback((opponentStats) => {
+  const startTournament = useCallback((opponentStats, mode) => {
       setTournament(prev => ({
           ...prev,
           active: true,
+          activeMode: mode,
           opponentStats
       }));
   }, []);
 
   const endTournament = useCallback((result, finalMoveCount) => {
-      if (result === 'win') {
-          // Calculate prize
-          const currentIncome = calculatePassiveIncomePerSecond(tournament.wins);
-          let prizeSeconds = 600;
-          if (skills['book_worm'] && finalMoveCount < 20) {
-              prizeSeconds *= 1.5;
+      setTournament(prev => {
+          if (result === 'win') {
+              const currentWins = getTotalWins(prev.ranks);
+              const currentIncome = calculatePassiveIncomePerSecond(currentWins);
+
+              // Determine prize
+              let prizeSeconds = 600;
+              if (skills['book_worm'] && finalMoveCount < 20) {
+                  prizeSeconds *= 1.5;
+              }
+
+              // Award Prize (Side Effect in state update - acceptable here for simplicity)
+              setResources(res => ({
+                  ...res,
+                  studyTime: res.studyTime + (currentIncome * prizeSeconds)
+              }));
+
+              const currentMode = prev.activeMode || 'rapid';
+
+              return {
+                  ...prev,
+                  active: false,
+                  activeMode: null,
+                  ranks: {
+                      ...prev.ranks,
+                      [currentMode]: prev.ranks[currentMode] + 1
+                  }
+              };
+          } else {
+              return {
+                  ...prev,
+                  active: false,
+                  activeMode: null
+              };
           }
-
-          setResources(prev => ({
-              ...prev,
-              studyTime: prev.studyTime + (currentIncome * prizeSeconds)
-          }));
-
-          setTournament(prev => ({
-              ...prev,
-              active: false,
-              wins: prev.wins + 1,
-              currentLevel: prev.currentLevel + 1
-          }));
-      } else {
-          setTournament(prev => ({
-              ...prev,
-              active: false
-          }));
-      }
-  }, [tournament.wins, skills]);
+      });
+  }, [skills]);
 
   // Debug Actions
   const addResource = useCallback((amount) => {
@@ -253,16 +302,16 @@ export const useGameState = () => {
   const derivedStats = {
       playerElo,
       availableAbilityPoints,
-      totalAbilityPoints
+      totalAbilityPoints,
+      totalWins // Export this for UI
   };
 
-  // Reconstruct full state object for compatibility with consumers
   const state = {
       resources,
       stats,
       skills,
       tournament,
-      lastSaveTime: Date.now() // rough estimate
+      lastSaveTime: Date.now()
   };
 
   return {
