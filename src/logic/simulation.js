@@ -35,22 +35,51 @@ const applyModeWeights = (stats, mode) => {
     return s;
 };
 
+// Helper: Get Min/Max stats sum for a given Tier
+// Tier 1: 100 to 300.
+// Range increases by 1.5x per Tier.
+const getTierBounds = (tier) => {
+    let min = 100;
+    let range = 200; // Tier 1 Range (300 - 100)
+
+    // Loop to calculate bounds for higher tiers
+    for (let i = 1; i < tier; i++) {
+        min += range; // New Min is Prev Max
+        range *= 1.5; // Range Expands
+    }
+
+    return { min, max: min + range };
+};
+
 export const generateOpponentStats = (wins) => {
-  // Base Total: 10 * (1.25 ^ wins)
-  let totalStats = 10 * Math.pow(1.25, wins);
+  // Logic: Tier-Based Interpolation
+  // Rank = wins + 1.
+  const rank = wins + 1;
   
-  // Spike every 10th tournament (Tournament 10, 20, etc.)
-  // Current tournament number is wins + 1.
-  if ((wins + 1) % 10 === 0) {
-    totalStats *= 3;
-  }
+  // 1. Determine Tier (Ceil of Rank/10)
+  // Rank 1-10 -> Tier 1. Rank 11-20 -> Tier 2.
+  const tier = Math.ceil(rank / 10);
   
-  // Round to nearest integer
+  // 2. Determine Progress within Tier (0.0 to 1.0)
+  // Rank 1 -> 0/9 = 0. Rank 10 -> 9/9 = 1.
+  // RankInTier is 0-indexed relative to tier start.
+  const rankInTier = (rank - 1) % 10;
+  const progress = rankInTier / 9.0;
+
+  // 3. Get Bounds
+  const { min, max } = getTierBounds(tier);
+
+  // 4. Interpolation with Curve (Power 1.5)
+  // TotalStats = Min + (Range * progress^1.5)
+  const range = max - min;
+  let totalStats = min + (range * Math.pow(progress, 1.5));
+
+  // Round to integer
   totalStats = Math.round(totalStats);
   
   // Ensure minimum stats
   const numStats = STATS.length;
-  if (totalStats < numStats) totalStats = numStats; // At least 1 per stat
+  if (totalStats < numStats) totalStats = numStats;
   
   const stats = {
     opening: 1,
@@ -72,7 +101,13 @@ export const generateOpponentStats = (wins) => {
   const totalPower = Object.values(stats).reduce((a, b) => a + b, 0);
   const opponentElo = 100 + totalPower;
   
-  return { stats, totalPower: opponentElo, rawStatsSum: totalPower };
+  return {
+      stats,
+      totalPower: opponentElo,
+      rawStatsSum: totalPower,
+      tier,
+      currentOpponent: rankInTier + 1
+  };
 };
 
 export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, currentEval, skills = {}, phase1Won = false, move11Eval = 0, mode = 'rapid') => {
