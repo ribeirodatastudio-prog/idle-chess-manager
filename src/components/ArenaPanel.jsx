@@ -13,6 +13,11 @@ export const ArenaPanel = ({
 
   const currentLevel = ranks[selectedMode];
 
+  // Calculate RankInTier for display (When inactive)
+  const displayRank = active ? ranks[tournament.activeMode] : currentLevel;
+  const displayTier = Math.ceil(displayRank / 10);
+  const displayOpponent = ((displayRank - 1) % 10) + 1;
+
   // Helper to handle start
   const handleStart = () => {
       onStartTournament(selectedMode);
@@ -55,9 +60,14 @@ export const ArenaPanel = ({
              </div>
           )}
 
-          <h2 className="text-xl sm:text-2xl font-bold text-center text-gray-100">
-            Tournament <span className="text-yellow-500">#{active ? ranks[tournament.activeMode] : currentLevel}</span>
-          </h2>
+          <div className="text-center">
+             <h2 className="text-xl sm:text-2xl font-bold text-gray-100">
+                Tier <span className="text-yellow-500">{displayTier}</span>
+             </h2>
+             <p className="text-xs text-gray-400 uppercase tracking-widest font-bold">
+                 Opponent {displayOpponent} / 10
+             </p>
+          </div>
       </div>
 
       {/* Evaluation Bar */}
