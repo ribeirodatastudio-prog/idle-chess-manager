@@ -14,20 +14,23 @@ export const ArenaPanel = ({
   const currentLevel = ranks[selectedMode];
 
   // Calculate RankInTier for display (When inactive)
+  // If active, use tournament data. If inactive, use calculated preview.
   const displayRank = active ? ranks[tournament.activeMode] : currentLevel;
   const displayTier = Math.ceil(displayRank / 10);
   const displayOpponent = ((displayRank - 1) % 10) + 1;
 
-  // Helper to handle start
-  const handleStart = () => {
-      onStartTournament(selectedMode);
-  };
+  const identity = opponentStats?.identity;
 
   // Calculate bar width percentage (0 to 100)
   // Range is -8 to +8 (New Threshold). Total range 16.
   // -8 => 0%, 0 => 50%, +8 => 100%
   const clampedEval = Math.max(-8, Math.min(8, evalBar));
   const barPercentage = ((clampedEval + 8) / 16) * 100;
+
+  // Helper to handle start
+  const handleStart = () => {
+      onStartTournament(selectedMode);
+  };
 
   return (
     <div className="bg-gray-900 p-4 rounded-xl shadow-2xl h-full flex flex-col border border-gray-800 relative overflow-hidden">
@@ -69,6 +72,18 @@ export const ArenaPanel = ({
              </p>
           </div>
       </div>
+
+      {/* Identity Display (Active Match Only) */}
+      {active && identity && (
+          <div className="relative z-10 mb-4 text-center animate-fade-in">
+              <h3 className={`text-2xl font-black uppercase tracking-wide ${identity.color} drop-shadow-md`}>
+                  {identity.title}
+              </h3>
+              <p className="text-xs text-gray-400 italic">
+                  {identity.hint}
+              </p>
+          </div>
+      )}
 
       {/* Evaluation Bar */}
       <div className="mb-4 sm:mb-8 relative z-10 shrink-0">

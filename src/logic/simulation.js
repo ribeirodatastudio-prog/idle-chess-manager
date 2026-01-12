@@ -1,4 +1,5 @@
 import { STATS } from './math.js';
+import { getOpponentIdentity } from './identity.js';
 
 export const PHASES = {
   OPENING: { start: 1, end: 10, name: 'Opening' },
@@ -59,7 +60,7 @@ export const generateOpponentStats = (wins) => {
   // 1. Determine Tier (Ceil of Rank/10)
   // Rank 1-10 -> Tier 1. Rank 11-20 -> Tier 2.
   const tier = Math.ceil(rank / 10);
-  
+
   // 2. Determine Progress within Tier (0.0 to 1.0)
   // Rank 1 -> 0/9 = 0. Rank 10 -> 9/9 = 1.
   // RankInTier is 0-indexed relative to tier start.
@@ -97,6 +98,9 @@ export const generateOpponentStats = (wins) => {
     remainingPoints--;
   }
   
+  // Analyze Identity
+  const identity = getOpponentIdentity(stats);
+
   // Opponent ELO = 100 + Sum(Stats)
   const totalPower = Object.values(stats).reduce((a, b) => a + b, 0);
   const opponentElo = 100 + totalPower;
@@ -106,7 +110,8 @@ export const generateOpponentStats = (wins) => {
       totalPower: opponentElo,
       rawStatsSum: totalPower,
       tier,
-      currentOpponent: rankInTier + 1
+      currentOpponent: rankInTier + 1,
+      identity // Added Identity
   };
 };
 
