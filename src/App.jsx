@@ -38,7 +38,8 @@ function App() {
     const currentModeRank = state.tournament.ranks[mode];
     const winsForMode = currentModeRank - 1;
 
-    const { stats, totalPower } = generateOpponentStats(winsForMode);
+    // Generate FULL opponent stats (including identity)
+    const fullOpponentStats = generateOpponentStats(winsForMode);
     
     // Check for Gambiteer skill
     const startEval = state.skills['gambiteer'] ? -0.5 : 0.3;
@@ -56,8 +57,8 @@ function App() {
     simulationStateRef.current = initialState;
     setLogs([]);
     
-    // Update global state
-    actions.startTournament({ stats, totalPower }, mode);
+    // Update global state - passing the FULL object to preserve identity
+    actions.startTournament(fullOpponentStats, mode);
   };
 
   // Simulation Loop
