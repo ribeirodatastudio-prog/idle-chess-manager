@@ -1,5 +1,5 @@
 export const TOURNAMENT_CONFIG = [
-    { id: 't1', name: 'School Championship', minElo: 50, maxElo: 800 },
+    { id: 't1', name: 'School Championship', minElo: 100, maxElo: 600 },
     { id: 't2', name: 'Local Club Cup', minElo: 800, maxElo: 1200 },
     { id: 't3', name: 'City Open', minElo: 1200, maxElo: 1800 },
     { id: 't4', name: 'Regional Qualifiers', minElo: 1800, maxElo: 2600 },
