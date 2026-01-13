@@ -32,13 +32,21 @@ This section documents the exact formulas used in the game's code.
     *   Formula: `floor((PlayerElo - 100) / 300) + floor(Wins / 10)`.
     *   AP is used to purchase skills.
 
-### 3. Tournament Scaling
+### 3. Tournament Scaling (Gauntlet System)
 
-*   **Opponent Stats Generation:**
-    *   **Base Total Stats:** `10 * (1.25 ^ Wins)`.
-    *   **Boss Spike:** Every 10th tournament (Tournament 10, 20, etc.), the total stats are multiplied by **3**.
-    *   **Minimum:** The total stats will never be less than 5 (ensuring at least 1 point per stat category).
-    *   **Opponent Elo:** `100 + Sum(OpponentStats)`.
+*   **Structure:**
+    *   **20 Unique Tournaments:** Ranging from "School Championship" (600 Elo) to "Simulator Full Force" (1 Billion Elo).
+    *   **Tiers:** Each Tournament has **10 Tiers**.
+    *   **Matches:** Each Tier consists of **3 Matches**.
+    *   **Progression:** Win 3 Matches to advance a Tier. Complete 10 Tiers to advance to the next Tournament.
+
+*   **Opponent Stats:**
+    *   **Base Elo:** Interpolated between the Tournament's Min and Max Elo based on the current Tier.
+    *   **Match Multiplier:**
+        *   Match 1: 1.00x
+        *   Match 2: 1.02x
+        *   Match 3: 1.05x
+    *   **Total Power:** `OpponentElo - 100`.
 
 *   **Tournament Rewards:**
     *   **Base Reward:** `CurrentIncomePerSecond * 600` (Equivalent to 10 minutes of passive income).

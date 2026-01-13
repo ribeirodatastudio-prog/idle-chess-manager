@@ -33,13 +33,11 @@ function App() {
 
   // Start Tournament Handler (Updated for Modes)
   const handleStartTournament = (mode) => {
-    // Generate opponent based on current wins for that mode
-    // wins = rank - 1
+    // Generate opponent based on current rank object
     const currentModeRank = state.tournament.ranks[mode];
-    const winsForMode = currentModeRank - 1;
 
     // Generate FULL opponent stats (including identity)
-    const fullOpponentStats = generateOpponentStats(winsForMode);
+    const fullOpponentStats = generateOpponentStats(currentModeRank);
     
     // Check for Gambiteer skill
     const startEval = state.skills['gambiteer'] ? -0.5 : 0.3;
