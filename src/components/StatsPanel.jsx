@@ -7,7 +7,8 @@ const STAT_LABELS = {
   midgame: 'Midgame',
   endgame: 'Endgame',
   tactics: 'Tactics',
-  sacrifices: 'Sacrifice Chance'
+  sacrifices: 'Sacrifice Chance',
+  defense: 'Defense'
 };
 
 const StatCard = ({ statKey, level, resources, onUpgrade }) => {
@@ -80,9 +81,9 @@ export const StatsPanel = ({ stats, resources, onUpgrade }) => {
           />
         ))}
       </div>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-3 gap-2">
          {/* Row 2 */}
-         {['tactics', 'sacrifices'].map(key => (
+         {['tactics', 'sacrifices', 'defense'].map(key => (
           <StatCard
             key={key} 
             statKey={key} 

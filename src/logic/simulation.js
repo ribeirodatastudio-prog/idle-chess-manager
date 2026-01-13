@@ -94,6 +94,9 @@ export const generateOpponentStats = (rankData) => {
     remainingPoints--;
   }
 
+  // Ensure Defense is initialized if missing (fallback for migration or logic gaps)
+  if (!stats.defense) stats.defense = 1;
+
   // Identity
   const identity = getOpponentIdentity(stats);
   
@@ -214,15 +217,27 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
       enemyMinR = 1.0; enemyMaxR = 1.0;
   }
 
-  const playerPower = (playerBaseSum * 0.5) * getRandom(minR, maxR);
-  const enemyPower = (enemyBaseSum * 0.5) * getRandom(enemyMinR, enemyMaxR);
+  const rawPlayerAttack = (playerBaseSum * 0.5) * getRandom(minR, maxR);
+  const rawEnemyAttack = (enemyBaseSum * 0.5) * getRandom(enemyMinR, enemyMaxR);
+
+  // Mitigation Logic (Defense)
+  // Effective Damage = Max(Raw * 0.2, Raw - Defense*0.5)
+  // Defense defaults to 1 if missing
+  const playerDefense = playerStats.defense || 1;
+  const enemyDefense = enemyStats.defense || 1;
+
+  const playerMitigation = playerDefense * 0.5;
+  const enemyMitigation = enemyDefense * 0.5;
+
+  const playerEffective = Math.max(rawPlayerAttack * 0.2, rawPlayerAttack - enemyMitigation);
+  const enemyEffective = Math.max(rawEnemyAttack * 0.2, rawEnemyAttack - playerMitigation);
   
   // Dampened Delta
   let dampeningFactor = 0.1;
   
   // Positional Squeeze (Category B): If Delta > 0 (Calculated later), increase factor
   // But we need the raw delta first.
-  let rawDelta = playerPower - enemyPower;
+  let rawDelta = playerEffective - enemyEffective;
   
   // Pin (Category D): Midgame, Delta < 0 -> 20% chance Delta = 0
   if (skills.pin && phase === PHASES.MIDGAME.name && rawDelta < 0) {
