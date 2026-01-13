@@ -9,20 +9,26 @@ export const calculatePassiveIncomePerSecond = (wins) => {
   return totalPerMinute / 60;
 };
 
-export const calculateUpgradeCost = (currentLevel, hasPrepFiles = false) => {
+export const calculateUpgradeCost = (currentLevel, hasPrepFiles = false, statName = '') => {
   // Base Cost: 1
   // Growth: 1.1x per level
-  // Spike: 5x at 100, 200, etc.
-  
   let cost = 1 * Math.pow(1.1, currentLevel - 1);
   
-  // Spike logic
-  if ((currentLevel + 1) % 100 === 0) {
-    cost *= 5;
+  if (statName === 'sacrifices') {
+      // The Wall: Every 50th level (50, 100, 150...), apply 1000x
+      if ((currentLevel + 1) % 50 === 0) {
+          cost *= 1000;
+      }
+      // Note: Standard 5x spike does NOT apply to sacrifices to avoid double spiking.
+  } else {
+      // Standard Spike logic for other stats
+      if ((currentLevel + 1) % 100 === 0) {
+        cost *= 5;
+      }
   }
   
   // Prep Files Discount (Category A)
-  if (hasPrepFiles) {
+  if (hasPrepFiles && statName === 'opening') {
     cost *= 0.8;
   }
   

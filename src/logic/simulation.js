@@ -108,7 +108,7 @@ export const generateOpponentStats = (rankData) => {
   };
 };
 
-export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, currentEval, skills = {}, phase1Won = false, move11Eval = 0, mode = 'rapid') => {
+export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, currentEval, skills = {}, phase1Won = false, move11Eval = 0, mode = 'rapid', hasSacrificed = false) => {
   // Apply Mode Weights first
   const playerStats = applyModeWeights(rawPlayerStats, mode);
   const enemyStats = applyModeWeights(rawEnemyStats, mode);
@@ -256,37 +256,30 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
       }
   }
   
-  // Sacrifice Mechanic (Midgame Only)
+  // Sacrifice Mechanic (One-Time Gambit)
   let sacrificeSwing = 0;
-  if (phase === PHASES.MIDGAME.name) {
-    // Tal's Spirit (Category C): Max +3.5
-    const sacMax = skills.tals_spirit ? 3.5 : 3.0;
-    
-    // Sacrifice Swing
-    // Note: Use weighted sacrifices or raw? Weighted makes sense for combat.
-    let rawSwing = (playerStats.sacrifices * 0.05) * getRandom(-2.0, sacMax);
-    
-    // Chaos Theory (Category C): Scale by Enemy Tier
-    if (skills.chaos_theory) {
-        // We use raw enemy stats to determine "tier" (Elo is based on raw stats)
-        const enemyTotalStats = Object.values(rawEnemyStats).reduce((a, b) => a + b, 0);
-        const enemyElo = 100 + enemyTotalStats;
-        const tier = Math.floor(enemyElo / 500);
-        rawSwing *= (1 + (tier * 0.1));
-    }
-    
-    // Desperado (Category C): Eval < -3.0 -> Effectiveness * 2
-    if (skills.desperado && currentEval < -3.0) {
-        rawSwing *= 2;
-    }
-    
-    // Sound Sacrifice (Category C): Negative swing halved
-    if (skills.sound_sacrifice && rawSwing < 0) {
-        rawSwing /= 2;
-    }
-    
-    sacrificeSwing = rawSwing;
-    delta += sacrificeSwing;
+  let triggeredSacrifice = false;
+
+  if (moveNumber > 5 && !hasSacrificed && Math.random() < 0.02) {
+      // Trigger Sacrifice
+      triggeredSacrifice = true;
+
+      // Success Check: Roll < (Level * 0.2)
+      // Max Level 500 * 0.2 = 100% chance.
+      const successChance = rawPlayerStats.sacrifices * 0.2;
+      const roll = Math.random() * 100;
+
+      if (roll < successChance) {
+          // Success
+          sacrificeSwing = 5.0;
+          logMessage = '!! BRILLIANT SACRIFICE !! The engine didn\'t see it coming!';
+      } else {
+          // Failure
+          sacrificeSwing = -2.0;
+          logMessage = 'Unsound Sacrifice... The opponent refutes it.';
+      }
+
+      delta += sacrificeSwing;
   }
   
   // Greek Gift (Category C): Move 20, 30% chance +2.0
@@ -368,6 +361,7 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
     result,
     phase,
     sacrificeSwing,
-    logMessage
+    logMessage,
+    hasSacrificed: triggeredSacrifice
   };
 };
