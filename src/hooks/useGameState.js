@@ -235,10 +235,16 @@ export const useGameState = () => {
 
   // Actions
   const upgradeStat = useCallback((statName) => {
+    // Hard Cap for Sacrifices
+    if (statName === 'sacrifices' && stats.sacrifices >= 500) {
+        return;
+    }
+
     setResources(prevRes => {
         const currentLevel = stats[statName];
         const hasPrepFiles = skills['prep_files'];
-        const cost = calculateUpgradeCost(currentLevel, hasPrepFiles && statName === 'opening');
+        // Pass statName to calculation for custom logic (Sacrifice Wall)
+        const cost = calculateUpgradeCost(currentLevel, hasPrepFiles, statName);
 
         if (prevRes.studyTime >= cost) {
             setStats(prevStats => ({

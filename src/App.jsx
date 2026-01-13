@@ -49,7 +49,8 @@ function App() {
       phase: 'Opening',
       result: null,
       phase1Won: false,
-      move11Eval: 0
+      move11Eval: 0,
+      hasSacrificed: false
     };
     setSimulationState(initialState);
     simulationStateRef.current = initialState;
@@ -82,7 +83,8 @@ function App() {
           state.skills,
           currentSimState.phase1Won,
           currentSimState.move11Eval,
-          state.tournament.activeMode // Pass the active mode
+          state.tournament.activeMode, // Pass the active mode
+          currentSimState.hasSacrificed // Pass sacrifice state
         );
         
         // Construct Log Message
@@ -120,7 +122,8 @@ function App() {
             phase: moveResult.phase,
             result: moveResult.result,
             phase1Won: nextPhase1Won,
-            move11Eval: nextMove11Eval
+            move11Eval: nextMove11Eval,
+            hasSacrificed: prev.hasSacrificed || moveResult.hasSacrificed
           }));
         } else {
             setSimulationState(prev => ({
@@ -129,7 +132,8 @@ function App() {
                 moveNumber: nextMove,
                 phase: moveResult.phase,
                 phase1Won: nextPhase1Won,
-                move11Eval: nextMove11Eval
+                move11Eval: nextMove11Eval,
+                hasSacrificed: prev.hasSacrificed || moveResult.hasSacrificed
             }));
         }
       }, 500); // 0.5s per move

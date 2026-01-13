@@ -7,28 +7,45 @@ const STAT_LABELS = {
   midgame: 'Midgame',
   endgame: 'Endgame',
   tactics: 'Tactics',
-  sacrifices: 'Sacrifices'
+  sacrifices: 'Sacrifice Chance'
 };
 
 const StatCard = ({ statKey, level, resources, onUpgrade }) => {
-  const cost = calculateUpgradeCost(level);
-  const canAfford = resources.studyTime >= cost;
+  const isSacrifice = statKey === 'sacrifices';
+  const isMaxed = isSacrifice && level >= 500;
+
+  // Pass statKey (statName) to calculateUpgradeCost
+  const cost = calculateUpgradeCost(level, false, statKey);
+  const canAfford = !isMaxed && resources.studyTime >= cost;
+
+  const displayLevel = isSacrifice ? `${(level * 0.2).toFixed(1)}%` : level;
 
   return (
     <button
       onClick={() => onUpgrade(statKey)}
-      disabled={!canAfford}
+      disabled={!canAfford || isMaxed}
       className={`relative flex flex-col items-center justify-center p-2 rounded-lg border transition-all duration-200 h-24
-        ${canAfford
-          ? 'bg-gray-800 border-gray-600 hover:bg-gray-700 hover:border-blue-500 active:scale-95'
-          : 'bg-gray-800/50 border-gray-800 opacity-70 cursor-not-allowed'
+        ${isMaxed
+            ? 'bg-yellow-900/20 border-yellow-700 cursor-default'
+            : canAfford
+                ? 'bg-gray-800 border-gray-600 hover:bg-gray-700 hover:border-blue-500 active:scale-95'
+                : 'bg-gray-800/50 border-gray-800 opacity-70 cursor-not-allowed'
         }`}
     >
       <span className="text-xs text-gray-400 uppercase font-bold tracking-wider mb-1">{STAT_LABELS[statKey]}</span>
-      <span className="text-xl font-mono font-bold text-white mb-1">{level}</span>
-      <span className={`text-xs font-semibold px-2 py-0.5 rounded ${canAfford ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-500'}`}>
-        {formatNumber(cost)}
+      <span className={`font-mono font-bold text-white mb-1 ${isSacrifice ? 'text-lg' : 'text-xl'}`}>
+          {displayLevel}
       </span>
+
+      {isMaxed ? (
+          <span className="text-xs font-bold px-2 py-0.5 rounded bg-yellow-600 text-white">
+              MAX
+          </span>
+      ) : (
+          <span className={`text-xs font-semibold px-2 py-0.5 rounded ${canAfford ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-500'}`}>
+            {formatNumber(cost)}
+          </span>
+      )}
     </button>
   );
 };
