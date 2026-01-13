@@ -1,44 +1,38 @@
 const { calculateUpgradeCost } = require('../src/logic/math.js');
 
-console.log("=== Verifying Math Logic ===");
+console.log("=== Verifying Math Logic (Cumulative Wall) ===");
 
-// 1. Verify Standard Stat
-const opening49 = calculateUpgradeCost(49, false, 'opening');
-const opening50 = calculateUpgradeCost(50, false, 'opening'); // No spike (50 % 100 != 0)
-console.log(`Opening Lvl 49 Cost: ${opening49.toFixed(2)}`);
-console.log(`Opening Lvl 50 Cost: ${opening50.toFixed(2)}`);
-if (opening50 > opening49 * 2) console.error("FAIL: Unexpected spike for Opening at 50");
-
-// 2. Verify Sacrifice Wall
+// 1. Verify Level 49 (Buying 50) - Spike Start
 const sac49 = calculateUpgradeCost(49, false, 'sacrifices');
-const sac50 = calculateUpgradeCost(50, false, 'sacrifices'); // Should spike (51 % 50 != 0... wait. Formula is (currentLevel + 1) % 50 === 0)
-// If I am AT level 49, upgrading TO 50. cost is calculated for currentLevel=49.
-// Formula check: (49 + 1) % 50 === 0 -> True. So upgrading FROM 49 TO 50 triggers the spike.
-// Wait, "The Wall: Every 50th level (50, 100, 150...)" implies the cost to REACH 50 or reach 51?
-// "Every 50th level apply an additional 1000x multiplier to the cost" usually means the milestone is hard to pass.
-// If I am at 49, buying 50. This is the 50th level.
-// Code: `if ((currentLevel + 1) % 50 === 0)` -> 50 % 50 === 0. Yes.
-console.log(`Sacrifice Lvl 49 (Buy 50): ${sac49.toFixed(2)}`);
-console.log(`Ratio: ${sac49 / (1 * Math.pow(1.1, 48))}`); // Should be ~1000 * 1.1? No, just 1000 * base growth.
-// Base at 49 = 1.1^48.
-// Cost = Base * 1000?
+const base49 = 1 * Math.pow(1.1, 48);
+const expected49 = base49 * 1000;
+console.log(`Lvl 49 (Buy 50): ${sac49.toFixed(2)}. Expected ~${expected49.toFixed(2)}`);
 
-const expectedBase49 = 1 * Math.pow(1.1, 48);
-if (sac49 > expectedBase49 * 900) {
-    console.log("PASS: Wall detected at Level 49 (Buying 50)");
+if (Math.abs(sac49 - expected49) > 1.0) console.error("FAIL: Lvl 49 cost mismatch.");
+
+// 2. Verify Level 50 (Buying 51) - Spike Continued
+const sac50 = calculateUpgradeCost(50, false, 'sacrifices');
+const base50 = 1 * Math.pow(1.1, 49);
+const expected50 = base50 * 1000;
+console.log(`Lvl 50 (Buy 51): ${sac50.toFixed(2)}. Expected ~${expected50.toFixed(2)}`);
+
+if (Math.abs(sac50 - expected50) > 1.0) {
+    console.error("FAIL: Lvl 50 cost dropped significantly!");
 } else {
-    console.error(`FAIL: Wall missing at Level 49. Cost: ${sac49}, Expected > ${expectedBase49 * 900}`);
+    console.log("PASS: Wall maintained at Level 50.");
 }
 
-const sac50_buy51 = calculateUpgradeCost(50, false, 'sacrifices');
-console.log(`Sacrifice Lvl 50 (Buy 51): ${sac50_buy51.toFixed(2)}`);
-// Should return to normal growth relative to base.
-// Base at 50 = 1.1^49.
-const expectedBase50 = 1 * Math.pow(1.1, 49);
-if (sac50_buy51 < expectedBase50 * 5) {
-     console.log("PASS: Wall gone at Level 50 (Buying 51)");
+// 3. Verify Level 99 (Buying 100) - Double Spike
+const sac99 = calculateUpgradeCost(99, false, 'sacrifices');
+const base99 = 1 * Math.pow(1.1, 98);
+const expected99 = base99 * 1000000; // 1000^2
+console.log(`Lvl 99 (Buy 100): ${sac99.toExponential(2)}. Expected ~${expected99.toExponential(2)}`);
+
+// Use ratio for large numbers
+if (sac99 / base99 > 900000 && sac99 / base99 < 1100000) {
+    console.log("PASS: Double Wall at Level 99.");
 } else {
-    console.error("FAIL: Wall persisted or unexpected spike at 50");
+    console.error("FAIL: Double Wall logic incorrect.");
 }
 
 console.log("=== Math Verification Complete ===");

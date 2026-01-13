@@ -15,10 +15,14 @@ export const calculateUpgradeCost = (currentLevel, hasPrepFiles = false, statNam
   let cost = 1 * Math.pow(1.1, currentLevel - 1);
   
   if (statName === 'sacrifices') {
-      // The Wall: Every 50th level (50, 100, 150...), apply 1000x
-      if ((currentLevel + 1) % 50 === 0) {
-          cost *= 1000;
-      }
+      // The Wall: Every 50 levels, the cost jumps by 1000x and STAYS there.
+      // Tier 0 (0-48): 1x
+      // Tier 1 (49-98): 1000x
+      // Tier 2 (99-148): 1,000,000x
+      const wallTier = Math.floor((currentLevel + 1) / 50);
+      const wallMultiplier = Math.pow(1000, wallTier);
+      cost *= wallMultiplier;
+
       // Note: Standard 5x spike does NOT apply to sacrifices to avoid double spiking.
   } else {
       // Standard Spike logic for other stats
