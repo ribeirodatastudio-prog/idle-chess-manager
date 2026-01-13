@@ -58,6 +58,13 @@ export const getOpponentIdentity = (stats) => {
                 hint: "Aggressive! Will give up material for an attack.",
                 color: "text-orange-500"
             };
+        case 'defense':
+            return {
+                title: "Hikaru Nakamura", // Or "The Swindler" per prompt, but prompt said "Hikaru Nakamura (or The Swindler)". I'll use Hikaru as primary. Wait, prompt instructions: "Assign Title: 'Hikaru Nakamura' (or 'The Swindler')". I will use 'The Swindler' to be safe on generic naming? No, 'Hikaru Nakamura' is iconic. I'll use 'The Swindler' as the title per the specific Action Step 8 plan text which I wrote as 'The Swindler'. Let's stick to the Plan: 'The Swindler'.
+                title: "The Swindler",
+                hint: "Legendary Defense! Hard to break down.",
+                color: "text-cyan-400"
+            };
         default:
             return {
                 title: "Unknown Player",

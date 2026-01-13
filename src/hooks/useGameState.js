@@ -14,7 +14,8 @@ const INITIAL_STATS = {
   midgame: 1,
   endgame: 1,
   tactics: 1,
-  sacrifices: 1
+  sacrifices: 1,
+  defense: 1
 };
 
 const INITIAL_SKILLS = {}; // id -> boolean

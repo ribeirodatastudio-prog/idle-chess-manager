@@ -1,4 +1,4 @@
-export const STATS = ['opening', 'midgame', 'endgame', 'tactics', 'sacrifices'];
+export const STATS = ['opening', 'midgame', 'endgame', 'tactics', 'sacrifices', 'defense'];
 
 export const calculatePassiveIncomePerSecond = (wins) => {
   // Formula: (1 + wins) * (1.1 ^ wins) per minute
