@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { TOURNAMENT_CONFIG } from '../logic/tournaments';
 
 export const ArenaPanel = ({ 
   tournament, 
@@ -11,13 +12,21 @@ export const ArenaPanel = ({
   // Local state for mode selection (only when inactive)
   const [selectedMode, setSelectedMode] = useState('rapid'); // 'rapid', 'blitz', 'classical'
 
-  const currentLevel = ranks[selectedMode];
+  const rankData = active ? ranks[tournament.activeMode] : ranks[selectedMode];
 
-  // Calculate RankInTier for display (When inactive)
-  // If active, use tournament data. If inactive, use calculated preview.
-  const displayRank = active ? ranks[tournament.activeMode] : currentLevel;
-  const displayTier = Math.ceil(displayRank / 10);
-  const displayOpponent = ((displayRank - 1) % 10) + 1;
+  // Parse Rank Data
+  let tIdx = 0, tier = 0, match = 0;
+  if (typeof rankData === 'number') {
+      tier = Math.floor((rankData - 1) / 10);
+      match = (rankData - 1) % 10;
+  } else if (rankData) {
+      tIdx = rankData.tournamentIndex || 0;
+      tier = rankData.tierIndex || 0;
+      match = rankData.matchIndex || 0;
+  }
+
+  const config = TOURNAMENT_CONFIG[tIdx] || TOURNAMENT_CONFIG[0];
+  const tournamentName = config.name;
 
   const identity = opponentStats?.identity;
 
@@ -64,12 +73,20 @@ export const ArenaPanel = ({
           )}
 
           <div className="text-center">
+             <div className="text-sm text-blue-400 font-bold uppercase tracking-wider mb-1">
+                 {tournamentName}
+             </div>
              <h2 className="text-xl sm:text-2xl font-bold text-gray-100">
-                Tier <span className="text-yellow-500">{displayTier}</span>
+                Tier <span className="text-yellow-500">{tier + 1}</span> / 10
              </h2>
-             <p className="text-xs text-gray-400 uppercase tracking-widest font-bold">
-                 Opponent {displayOpponent} / 10
-             </p>
+             <div className="flex justify-center space-x-2 mt-1">
+                 {[0, 1, 2].map(i => (
+                     <div key={i} className={`w-3 h-3 rounded-full border border-gray-600 ${
+                         i < match ? 'bg-green-500' :
+                         i === match ? 'bg-yellow-500 animate-pulse' : 'bg-gray-800'
+                     }`}></div>
+                 ))}
+             </div>
           </div>
       </div>
 

@@ -1,5 +1,6 @@
 import { STATS } from './math.js';
 import { getOpponentIdentity } from './identity.js';
+import { TOURNAMENT_CONFIG } from './tournaments.js';
 
 export const PHASES = {
   OPENING: { start: 1, end: 10, name: 'Opening' },
@@ -36,52 +37,46 @@ const applyModeWeights = (stats, mode) => {
     return s;
 };
 
-// Helper: Get Min/Max stats sum for a given Tier
-// Tier 1: 100 to 300.
-// Range increases by 1.5x per Tier.
-const getTierBounds = (tier) => {
-    let min = 100;
-    let range = 200; // Tier 1 Range (300 - 100)
+export const generateOpponentStats = (rankData) => {
+  let tournamentIndex = 0;
+  let tierIndex = 0;
+  let matchIndex = 0;
 
-    // Loop to calculate bounds for higher tiers
-    for (let i = 1; i < tier; i++) {
-        min += range; // New Min is Prev Max
-        range *= 1.5; // Range Expands
-    }
+  if (typeof rankData === 'number') {
+      // Legacy / Fallback
+      const wins = rankData;
+      tierIndex = Math.min(Math.floor(wins / 10), 9);
+      matchIndex = wins % 3;
+  } else if (rankData) {
+      tournamentIndex = rankData.tournamentIndex || 0;
+      tierIndex = rankData.tierIndex || 0;
+      matchIndex = rankData.matchIndex || 0;
+  }
 
-    return { min, max: min + range };
-};
+  const config = TOURNAMENT_CONFIG[tournamentIndex] || TOURNAMENT_CONFIG[0];
 
-export const generateOpponentStats = (wins) => {
-  // Logic: Tier-Based Interpolation
-  // Rank = wins + 1.
-  const rank = wins + 1;
-  
-  // 1. Determine Tier (Ceil of Rank/10)
-  // Rank 1-10 -> Tier 1. Rank 11-20 -> Tier 2.
-  const tier = Math.ceil(rank / 10);
+  // Interpolate Base Elo
+  // Tier 0 -> minElo. Tier 9 -> maxElo.
+  const denominator = 9;
+  const progress = Math.min(tierIndex / denominator, 1.0);
 
-  // 2. Determine Progress within Tier (0.0 to 1.0)
-  // Rank 1 -> 0/9 = 0. Rank 10 -> 9/9 = 1.
-  // RankInTier is 0-indexed relative to tier start.
-  const rankInTier = (rank - 1) % 10;
-  const progress = rankInTier / 9.0;
+  const baseElo = config.minElo + ((config.maxElo - config.minElo) * progress);
 
-  // 3. Get Bounds
-  const { min, max } = getTierBounds(tier);
+  // Match Multiplier
+  let multiplier = 1.0;
+  if (matchIndex === 1) multiplier = 1.02;
+  if (matchIndex === 2) multiplier = 1.05;
 
-  // 4. Interpolation with Curve (Power 1.5)
-  // TotalStats = Min + (Range * progress^1.5)
-  const range = max - min;
-  let totalStats = min + (range * Math.pow(progress, 1.5));
+  const targetElo = Math.floor(baseElo * multiplier);
 
-  // Round to integer
-  totalStats = Math.round(totalStats);
+  // Total Stats Sum = Elo - 100
+  let totalStats = targetElo - 100;
   
   // Ensure minimum stats
   const numStats = STATS.length;
   if (totalStats < numStats) totalStats = numStats;
-  
+
+  // Distribute Stats
   const stats = {
     opening: 1,
     midgame: 1,
@@ -90,28 +85,26 @@ export const generateOpponentStats = (wins) => {
     sacrifices: 1
   };
   
-  let remainingPoints = totalStats - numStats; // We already gave 1 to each
+  let remainingPoints = totalStats - numStats;
   
+  // Random Distribution
   while (remainingPoints > 0) {
     const randomStat = STATS[Math.floor(Math.random() * numStats)];
     stats[randomStat]++;
     remainingPoints--;
   }
-  
-  // Analyze Identity
-  const identity = getOpponentIdentity(stats);
 
-  // Opponent ELO = 100 + Sum(Stats)
-  const totalPower = Object.values(stats).reduce((a, b) => a + b, 0);
-  const opponentElo = 100 + totalPower;
+  // Identity
+  const identity = getOpponentIdentity(stats);
   
   return {
       stats,
-      totalPower: opponentElo,
-      rawStatsSum: totalPower,
-      tier,
-      currentOpponent: rankInTier + 1,
-      identity // Added Identity
+      totalPower: targetElo,
+      rawStatsSum: totalStats,
+      tier: tierIndex + 1, // Display 1-10
+      currentOpponent: matchIndex + 1, // Display 1-3
+      tournamentName: config.name,
+      identity
   };
 };
 

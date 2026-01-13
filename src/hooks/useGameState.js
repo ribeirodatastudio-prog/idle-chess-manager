@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { calculatePassiveIncomePerSecond, calculateUpgradeCost, calculateOfflineGain } from '../logic/math';
 import { getSkillById } from '../logic/skills';
+import { TOURNAMENT_CONFIG, TIERS_PER_TOURNAMENT, MATCHES_PER_TIER } from '../logic/tournaments';
 
 const STORAGE_KEY = 'chess-career-save';
 
@@ -24,9 +25,9 @@ const INITIAL_TOURNAMENT = {
   opponentStats: null,
   activeMode: null, // 'rapid', 'blitz', 'classical'
   ranks: {
-    rapid: 1,
-    blitz: 1,
-    classical: 1
+    rapid: { tournamentIndex: 0, tierIndex: 0, matchIndex: 0 },
+    blitz: { tournamentIndex: 0, tierIndex: 0, matchIndex: 0 },
+    classical: { tournamentIndex: 0, tierIndex: 0, matchIndex: 0 }
   }
 };
 
@@ -49,8 +50,19 @@ const calculateTotalPoints = (elo, wins) => {
 
 // Helper to get total wins from ranks
 const getTotalWins = (ranks) => {
-    // ranks start at 1. Wins = rank - 1.
-    return (ranks.rapid - 1) + (ranks.blitz - 1) + (ranks.classical - 1);
+    let total = 0;
+    ['rapid', 'blitz', 'classical'].forEach(mode => {
+        const r = ranks[mode];
+        if (typeof r === 'number') {
+             // Fallback/Legacy
+             total += r - 1;
+        } else if (r) {
+             total += (r.tournamentIndex * TIERS_PER_TOURNAMENT * MATCHES_PER_TIER) +
+                      (r.tierIndex * MATCHES_PER_TIER) +
+                      r.matchIndex;
+        }
+    });
+    return total;
 };
 
 export const useGameState = () => {
@@ -98,17 +110,41 @@ export const useGameState = () => {
   const [tournament, setTournament] = useState(() => {
     const saved = loadSave();
     if (saved && saved.tournament) {
-        // Migration logic: If old structure (wins/currentLevel) exists but ranks doesn't
-        if (!saved.tournament.ranks) {
-            return {
-                ...INITIAL_TOURNAMENT,
-                ranks: {
-                    rapid: saved.tournament.currentLevel || 1,
-                    blitz: 1,
-                    classical: 1
-                }
-            };
+        let savedRanks = saved.tournament.ranks;
+
+        // Migration 1: No ranks, only wins/currentLevel (Oldest)
+        if (!savedRanks) {
+             const lvl = saved.tournament.currentLevel || 1;
+             savedRanks = { rapid: lvl, blitz: 1, classical: 1 };
         }
+
+        // Migration 2: Ranks are numbers (Previous Version)
+        const migratedRanks = { ...INITIAL_TOURNAMENT.ranks };
+        let needsMigration = false;
+
+        ['rapid', 'blitz', 'classical'].forEach(mode => {
+            const r = savedRanks[mode];
+            if (typeof r === 'number') {
+                needsMigration = true;
+                const oldRank = r;
+                // safeTIdx caps at max tournaments
+                const tIdx = Math.min(Math.floor((oldRank - 1) / TIERS_PER_TOURNAMENT), TOURNAMENT_CONFIG.length - 1);
+                const tierIdx = (oldRank - 1) % TIERS_PER_TOURNAMENT;
+
+                migratedRanks[mode] = {
+                    tournamentIndex: tIdx,
+                    tierIndex: tierIdx,
+                    matchIndex: 0
+                };
+            } else if (r) {
+                migratedRanks[mode] = r;
+            }
+        });
+
+        if (needsMigration) {
+             return { ...INITIAL_TOURNAMENT, ...saved.tournament, ranks: migratedRanks };
+        }
+
         return { ...INITIAL_TOURNAMENT, ...saved.tournament };
     }
     return { ...INITIAL_TOURNAMENT };
@@ -250,13 +286,33 @@ export const useGameState = () => {
                   prizeSeconds *= 1.5;
               }
 
-              // Award Prize (Side Effect in state update - acceptable here for simplicity)
+              // Award Prize
               setResources(res => ({
                   ...res,
                   studyTime: res.studyTime + (currentIncome * prizeSeconds)
               }));
 
               const currentMode = prev.activeMode || 'rapid';
+              const currentRank = prev.ranks[currentMode];
+
+              // Progression Logic
+              let newMatch = currentRank.matchIndex + 1;
+              let newTier = currentRank.tierIndex;
+              let newTourn = currentRank.tournamentIndex;
+
+              if (newMatch >= MATCHES_PER_TIER) {
+                  newMatch = 0;
+                  newTier++;
+                  if (newTier >= TIERS_PER_TOURNAMENT) {
+                      newTier = 0;
+                      newTourn++;
+                      if (newTourn >= TOURNAMENT_CONFIG.length) {
+                          newTourn = TOURNAMENT_CONFIG.length - 1; // Cap at max
+                          newTier = TIERS_PER_TOURNAMENT - 1; // Cap at max tier
+                          newMatch = MATCHES_PER_TIER - 1; // Cap at max match
+                      }
+                  }
+              }
 
               return {
                   ...prev,
@@ -264,7 +320,11 @@ export const useGameState = () => {
                   activeMode: null,
                   ranks: {
                       ...prev.ranks,
-                      [currentMode]: prev.ranks[currentMode] + 1
+                      [currentMode]: {
+                          tournamentIndex: newTourn,
+                          tierIndex: newTier,
+                          matchIndex: newMatch
+                      }
                   }
               };
           } else {
