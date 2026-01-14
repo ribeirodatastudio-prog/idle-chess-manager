@@ -219,7 +219,8 @@ function App() {
       </div>
 
       <OfflineModal
-        isOpen={!!state.offlineReport}
+        isOpen={state.isOfflineLoading || !!state.offlineReport}
+        isLoading={state.isOfflineLoading}
         data={state.offlineReport}
         onClaim={actions.claimOfflineReward}
       />

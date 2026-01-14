@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { calculatePassiveIncomePerSecond, calculateUpgradeCost, calculateOfflineGain } from '../logic/math';
+import { calculatePassiveIncomePerSecond, calculateUpgradeCost } from '../logic/math';
 import { getSkillById } from '../logic/skills';
 import { TOURNAMENT_CONFIG, TIERS_PER_TOURNAMENT, MATCHES_PER_TIER } from '../logic/tournaments';
+import { useOfflineProgress } from './useOfflineProgress';
 
 const STORAGE_KEY = 'chess-career-save';
 
@@ -77,10 +78,10 @@ export const useGameState = () => {
     return initial;
   });
 
-  // Offline Calculation State
-  const [offlineReport, setOfflineReport] = useState(() => {
+  // Calculate Initial Rate for Offline Progress
+  const initialProductionRate = useMemo(() => {
       const saved = loadSave();
-      if (saved && saved.lastSaveTime && saved.tournament) {
+      if (saved && saved.tournament) {
           // Migration logic to get ranks safe
           let ranks = saved.tournament.ranks;
           if (!ranks) {
@@ -94,12 +95,13 @@ export const useGameState = () => {
                                 (ranks.blitz ? getIdx(ranks.blitz) : 0) +
                                 (ranks.classical ? getIdx(ranks.classical) : 0);
 
-          const rate = calculatePassiveIncomePerSecond(cumulativeIdx);
-
-          return calculateOfflineGain(saved.lastSaveTime, rate);
+          return calculatePassiveIncomePerSecond(cumulativeIdx);
       }
-      return null;
-  });
+      return 0;
+  }, []);
+
+  // Offline Hook
+  const { isLoading: isOfflineLoading, offlineReport, clearReport } = useOfflineProgress(initialProductionRate);
 
   // 2. Stats State
   const [stats, setStats] = useState(() => {
@@ -180,6 +182,15 @@ export const useGameState = () => {
       return () => clearInterval(interval);
   }, [saveGame]);
 
+  // Emergency Save on Close
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      saveGame();
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [saveGame]);
+
   // Derived Values
   const totalWins = useMemo(() => {
       return getTotalWins(tournament.ranks);
@@ -223,6 +234,9 @@ export const useGameState = () => {
   // Passive Income Loop
   useEffect(() => {
     const interval = setInterval(() => {
+      // Pause if calculating offline progress or showing report
+      if (isOfflineLoading || offlineReport) return;
+
       setResources(prev => {
         const currentRanks = stateRef.current.tournament.ranks;
 
@@ -238,7 +252,7 @@ export const useGameState = () => {
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, []); // Empty dependency since we use ref
+  }, [isOfflineLoading, offlineReport]);
 
   // Actions
   const upgradeStat = useCallback((statName) => {
@@ -363,9 +377,9 @@ export const useGameState = () => {
               ...prev,
               studyTime: prev.studyTime + offlineReport.gain
           }));
-          setOfflineReport(null);
+          clearReport();
       }
-  }, [offlineReport]);
+  }, [offlineReport, clearReport]);
 
   // Debug Actions
   const addResource = useCallback((amount) => {
@@ -378,8 +392,8 @@ export const useGameState = () => {
       setStats(INITIAL_STATS);
       setSkills(INITIAL_SKILLS);
       setTournament(INITIAL_TOURNAMENT);
-      setOfflineReport(null);
-  }, []);
+      clearReport();
+  }, [clearReport]);
 
   const actions = useMemo(() => ({
       upgradeStat,
@@ -405,6 +419,7 @@ export const useGameState = () => {
       skills,
       tournament,
       offlineReport,
+      isOfflineLoading,
       lastSaveTime: Date.now()
   };
 

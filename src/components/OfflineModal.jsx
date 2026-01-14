@@ -1,19 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { formatNumber, formatTimeShort } from '../logic/format';
 
-export const OfflineModal = ({ isOpen, data, onClaim }) => {
-  const [step, setStep] = useState('calculating');
-
-  useEffect(() => {
-    if (isOpen) {
-      setStep('calculating');
-      const timer = setTimeout(() => {
-        setStep('ready');
-      }, 2000);
-      return () => clearTimeout(timer);
-    }
-  }, [isOpen]);
-
+export const OfflineModal = ({ isOpen, isLoading, data, onClaim }) => {
   if (!isOpen) return null;
 
   return (
@@ -21,7 +9,7 @@ export const OfflineModal = ({ isOpen, data, onClaim }) => {
       <div className="bg-gray-900 border border-gray-700 rounded-xl p-8 w-full max-w-md shadow-2xl relative overflow-hidden">
 
         {/* Step 1: Calculating */}
-        {step === 'calculating' && (
+        {isLoading && (
           <div className="flex flex-col items-center justify-center space-y-6 py-8">
             <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
             <h2 className="text-xl font-bold text-gray-200 animate-pulse">Doing Puzzles...</h2>
@@ -29,7 +17,7 @@ export const OfflineModal = ({ isOpen, data, onClaim }) => {
         )}
 
         {/* Step 2: Ready */}
-        {step === 'ready' && (
+        {!isLoading && data && (
           <div className="flex flex-col items-center justify-center space-y-6 animate-slide-up">
             <div className="text-center">
                 <h2 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-yellow-600 mb-2">
