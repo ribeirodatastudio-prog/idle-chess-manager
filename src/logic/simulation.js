@@ -88,7 +88,23 @@ export const generateOpponentStats = (rankData) => {
   
   let remainingPoints = totalStats - numStats;
   
-  // Random Distribution
+  // Optimization: Bulk Distribution for large numbers
+  // Reserve a buffer for randomness to ensure 'Identity' logic still works
+  const BUFFER = 1000;
+
+  if (remainingPoints > BUFFER) {
+      const bulkPoints = remainingPoints - BUFFER;
+      const perStat = Math.floor(bulkPoints / numStats);
+
+      if (perStat > 0) {
+          STATS.forEach(key => {
+              stats[key] += perStat;
+          });
+          remainingPoints -= (perStat * numStats);
+      }
+  }
+
+  // Random Distribution (Remaining Buffer)
   while (remainingPoints > 0) {
     const randomStat = STATS[Math.floor(Math.random() * numStats)];
     stats[randomStat]++;
