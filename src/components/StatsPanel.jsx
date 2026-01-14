@@ -1,5 +1,5 @@
 import React from 'react';
-import { calculateUpgradeCost, calculateStatPower } from '../logic/math';
+import { calculateUpgradeCost, calculateStatPower, calculatePassiveIncomePerMinute } from '../logic/math';
 import { formatNumber } from '../logic/format';
 
 const STAT_LABELS = {
@@ -51,12 +51,17 @@ const StatCard = ({ statKey, level, resources, onUpgrade }) => {
   );
 };
 
-export const StatsHeader = ({ resources, playerElo }) => {
+export const StatsHeader = ({ resources, playerElo, tournamentIndex = 0 }) => {
+  const incomePerMinute = calculatePassiveIncomePerMinute(tournamentIndex);
+
   return (
     <div className="mb-4 grid grid-cols-2 gap-2">
-        <div className="bg-gray-800 p-2 rounded border border-gray-700 flex flex-col items-center justify-center">
+        <div className="bg-gray-800 p-2 rounded border border-gray-700 flex flex-col items-center justify-center relative">
           <span className="text-xs text-gray-400">Study Time</span>
-          <span className="text-blue-300 font-mono text-lg">{formatNumber(resources.studyTime)}</span>
+          <span className="text-blue-300 font-mono text-lg leading-none mb-1">{formatNumber(resources.studyTime)}</span>
+          <span className="text-[10px] text-green-400 font-mono">
+              +{formatNumber(incomePerMinute)}/min
+          </span>
         </div>
         <div className="bg-gray-800 p-2 rounded border border-gray-700 flex flex-col items-center justify-center">
           <span className="text-xs text-gray-400">Elo</span>

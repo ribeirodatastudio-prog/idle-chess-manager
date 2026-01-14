@@ -1,12 +1,16 @@
 export const STATS = ['opening', 'midgame', 'endgame', 'tactics', 'sacrifices', 'defense'];
 
-export const calculatePassiveIncomePerSecond = (wins) => {
-  // Formula: (1 + wins) * (1.1 ^ wins) per minute
-  // Per second = / 60
-  const baseIncomePerMinute = (1 + wins);
-  const multiplier = Math.pow(1.1, wins);
-  const totalPerMinute = baseIncomePerMinute * multiplier;
-  return totalPerMinute / 60;
+export const calculatePassiveIncomePerMinute = (tournamentIndex) => {
+  // Base Rate: 1 + tournamentIndex (Per Minute).
+  // Multiplier: Math.pow(1.05, tournamentIndex)
+  const baseRate = 1 + tournamentIndex;
+  const multiplier = Math.pow(1.05, tournamentIndex);
+  return baseRate * multiplier;
+};
+
+export const calculatePassiveIncomePerSecond = (tournamentIndex) => {
+  const perMinute = calculatePassiveIncomePerMinute(tournamentIndex);
+  return perMinute / 60;
 };
 
 export const calculateUpgradeCost = (currentLevel, hasPrepFiles = false, statName = '') => {
