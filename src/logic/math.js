@@ -53,8 +53,8 @@ export const calculateOfflineGain = (lastSaveTime, productionPerSecond) => {
   const now = Date.now();
   let diffInSeconds = (now - lastSaveTime) / 1000;
 
-  // Constraint A: Minimum 120s
-  if (diffInSeconds < 120) return null;
+  // Constraint A: Minimum 60s
+  if (diffInSeconds < 60) return null;
   
   // Constraint B: Cap at 24h (86400s)
   if (diffInSeconds > 86400) diffInSeconds = 86400;
