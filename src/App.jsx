@@ -5,6 +5,7 @@ import { StatsPanel, StatsHeader } from './components/StatsPanel';
 import { ArenaPanel } from './components/ArenaPanel';
 import { LogsPanel } from './components/LogsPanel';
 import { SkillsPanel, SkillsHeader } from './components/SkillsPanel';
+import { OfflineModal } from './components/OfflineModal';
 
 function App() {
   const { state, derivedStats, actions } = useGameState();
@@ -216,6 +217,12 @@ function App() {
       <div className="text-center text-gray-800 text-xs fixed bottom-1 left-0 right-0 pointer-events-none">
         Chess Career Idle v0.3 • Game Modes Added
       </div>
+
+      <OfflineModal
+        isOpen={!!state.offlineReport}
+        data={state.offlineReport}
+        onClaim={actions.claimOfflineReward}
+      />
     </div>
   );
 }
