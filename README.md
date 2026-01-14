@@ -1,114 +1,137 @@
 # Idle Chess Manager
 
-An incremental strategy game managed by React state and automated simulation. Players manage their chess study, upgrade stats, unlock skills, and compete in tournaments to climb the ranks.
+An incremental strategy game managed by React state and automated simulation. Players manage their chess study, upgrade stats, unlock skills, and compete in a "Gauntlet" style tournament system to climb the ranks.
 
 ## The Mathematics (Source of Truth)
 
 This section documents the exact formulas used in the game's code.
 
-### 1. Resources & Income
+### 1. Game Economy
 
 *   **Passive Income (Study Time):**
-    *   Formula: `((1 + wins) * (1.1 ^ wins)) / 60` per second.
-    *   This calculates the study time generated per second based on the number of tournament wins.
-
-*   **Offline Gain:**
-    *   Formula: `PassiveIncomePerSecond * SecondsOffline`.
-    *   Calculated immediately upon loading the game if a previous save exists.
-
-### 2. Stats & Upgrades
-
-*   **Stat Power:**
-    *   Formula: `Level * 0.5`.
-    *   Each level in a stat (Opening, Midgame, Endgame, Tactics, Sacrifices) contributes 0.5 to the base power calculation.
+    *   **Formula:** `((1 + TotalWins) * (1.05 ^ TotalWins)) / 60` per second.
+    *   **Source:** The `TotalWins` count is the sum of tournament indices reached across all game modes (Cumulative Economy).
+    *   **Usage:** Study Time is the primary currency for upgrading stats.
 
 *   **Upgrade Costs:**
     *   **Base Formula:** `1 * (1.1 ^ (Level - 1))`.
-    *   **Level Spikes:** At every 100th level (100, 200, 300...), the cost is multiplied by **5**.
-    *   **Discounts:**
-        *   If the **Prep Files** skill is owned, the cost for the **Opening** stat is multiplied by **0.8**.
+    *   **Level Spikes:** At every 100th level (100, 200, 300...), the cost is multiplied by **5** (Standard Stats).
+    *   **The Wall (Sacrifice Stat):** The 'Sacrifice' stat follows a special rule. Every 50 levels, the cost multiplier permanently increases by **1000x** (cumulative). This acts as a soft-cap/gatekeeper mechanic.
+        *   Tiers: 0-49 (1x), 50-99 (1,000x), 100-149 (1,000,000x), etc.
+    *   **Discounts:** *Prep Files* skill reduces 'Opening' stat cost by 20%.
 
-*   **Ability Points (AP):**
-    *   Formula: `floor((PlayerElo - 100) / 300) + floor(Wins / 10)`.
-    *   AP is used to purchase skills.
+*   **Offline Gain:**
+    *   **Formula:** `PassiveIncomePerSecond * SecondsOffline`.
+    *   **Constraints:** Minimum 60 seconds, Maximum 24 hours.
 
-### 3. Tournament Scaling (Gauntlet System)
+### 2. Combat System
 
-*   **Structure:**
-    *   **20 Unique Tournaments:** Ranging from "School Championship" (600 Elo) to "Simulator Full Force" (1 Billion Elo).
-    *   **Tiers:** Each Tournament has **10 Tiers**.
-    *   **Matches:** Each Tier consists of **3 Matches**.
-    *   **Progression:** Win 3 Matches to advance a Tier. Complete 10 Tiers to advance to the next Tournament.
+Matches are simulated move-by-move (50 moves max). The outcome is determined by comparing "Effective Power" derived from stats, game mode modifiers, and skills.
 
-*   **Opponent Stats:**
-    *   **Base Elo:** Interpolated between the Tournament's Min and Max Elo based on the current Tier.
-    *   **Match Multiplier:**
-        *   Match 1: 1.00x
-        *   Match 2: 1.02x
-        *   Match 3: 1.05x
-    *   **Total Power:** `OpponentElo - 100`.
+#### Game Modes & Modifiers
 
-*   **Tournament Rewards:**
-    *   **Base Reward:** `CurrentIncomePerSecond * 600` (Equivalent to 10 minutes of passive income).
-    *   **Bonus:** If the **Book Worm** skill is owned and the match is won in **< 20 moves**, the reward is multiplied by **1.5**.
+*   **Rapid (Standard):** No modifiers.
+*   **Blitz:**
+    *   **Instincts Boost:** Tactics & Sacrifices stats are multiplied by **1.8x**.
+    *   **Theory Nerf:** Opening, Midgame, and Endgame stats are multiplied by **0.6x**.
+*   **Classical:**
+    *   **Theory Boost:** Opening, Midgame, and Endgame stats are multiplied by **1.5x**.
+    *   **Defense Boost:** Defense stat is multiplied by **1.5x**.
+    *   **Instincts Nerf:** Tactics & Sacrifices stats are multiplied by **0.6x**.
 
-## Simulation Engine
+#### Phases & Calculation
 
-Matches are simulated move-by-move. The outcome is determined by comparing "Power" values derived from stats and skills.
+1.  **Attack Calculation:**
+    *   **Opening (Moves 1-10):** `BaseSum = Opening + (Tactics * 0.2)`.
+    *   **Midgame (Moves 11-30):** `BaseSum = Midgame + (Tactics * 0.8)`.
+    *   **Endgame (Moves 31-50):** `BaseSum = Endgame + (Tactics * 1.5)`.
+    *   **Raw Attack:** `(BaseSum * 0.5) * Random(0.95, 1.05)`.
 
-### Phases & Logic
+2.  **Defense & Mitigation:**
+    *   **Mitigation:** `Defense * 0.5`.
+    *   **Effective Damage:** `Math.max(RawAttack * 0.2, RawAttack - Mitigation)`.
+    *   *Note: The "Safety Floor" ensures that at least 20% of an attack always penetrates, regardless of how high the Defense is.*
 
-1.  **Opening (Moves 1-10)**
-    *   **Base Power:** `OpeningStat + (TacticsStat * 0.2)`.
-    *   **Skills:** *Main Line* (Opening >= 100 -> +10%), *Gambiteer* (+20% Tactics).
+3.  **Delta & Evaluation:**
+    *   **Delta:** `(PlayerEffective - EnemyEffective) * 0.1`.
+    *   **New Eval:** `CurrentEval + Delta`.
 
-2.  **Midgame (Moves 11-30)**
-    *   **Base Power:** `MidgameStat + (TacticsStat * 0.8)`.
-    *   **Skills:** *Battery Attack* (+10% if Phase 1 Won), *Counter-Play* (+15% if losing at Move 11), *Knight Outpost* (+10%).
-    *   **Sacrifice Mechanic:** In this phase, a "Sacrifice Swing" is calculated (based on Sacrifices stat) adding volatility to the evaluation.
+#### Special Mechanics
 
-3.  **Endgame (Moves 31-50)**
-    *   **Base Power:** `EndgameStat + (TacticsStat * 1.5)`.
-    *   **Skills:** *Zugzwang* (Reduces enemy power by 1% cumulatively per move).
-
-### Evaluation & Outcome
-
-*   **Move Calculation:**
-    *   `PlayerPower = (PlayerBaseSum * 0.5) * Random(0.95, 1.05)`
-    *   `EnemyPower = (EnemyBaseSum * 0.5) * Random(0.95, 1.05)`
-    *   `Delta = (PlayerPower - EnemyPower) * 0.1`
-    *   `NewEval = CurrentEval + Delta`
-
-*   **Win Conditions:**
-    *   **Win:** `Eval >= 8.0` (or `6.0` if *Mate Net* skill is owned).
-    *   **Loss:** `Eval <= -8.0`.
+*   **Sacrifice (Gambit):**
+    *   After Move 5, there is a **2% chance** per turn to trigger a Sacrifice.
+    *   **Success:** If `Random(0, 100) < (SacrificeLevel * 0.2)`, result is **+5.0 Eval**.
+    *   **Failure:** Result is **-2.0 Eval**.
+    *   **Cap:** Sacrifice chance effectively caps at Level 500 (100% success rate).
 
 *   **Endgame Snowball:**
-    *   In the Endgame phase (Moves 31+), if a side has an advantage (`abs(Eval) > 1.0`), their advantage is multiplied by **1.1x** (10%) per turn. This prevents long, drawn-out endgames by forcing a decisive result.
+    *   From Move 31+, if `abs(Eval) > 1.0`, the advantage is multiplied by **1.1x** per turn. This prevents stalemates in lopsided games.
 
-*   **Draw Conditions:**
-    *   **Deadlock:** Between Move 30-49, if Eval is between `-1.0` and `1.0`, there is a **15% chance** per turn to draw. (40% chance if *Fortress* skill is active and Eval is between `-5.0` and `-2.0`).
-    *   **Move Limit & Tie-Breaker:** If Move 50 is reached without a result:
-        *   **Tie-Breaker:** The side with the higher total **Tactics + Sacrifices** wins.
-        *   **Draw:** If stats are identical, the game ends in a Draw.
+*   **Tie-Breakers:**
+    *   **Move 50 Limit:** If no checkmate occurs by Move 50, the side with the higher **Tactical Superiority** (Tactics + Sacrifices) wins.
+    *   **True Draw:** If stats are identical, the game is drawn.
 
-## Technical & Setup
+### 3. Progression (The Gauntlet)
 
-*   **Stack:** React + Tailwind CSS (Vite).
-*   **State Management:** Custom Hook (`useGameState`).
+*   **Structure:**
+    *   **20 Tournaments:** From "School Championship" to "Simulator Full Force".
+    *   **10 Tiers** per Tournament.
+    *   **3 Matches** per Tier.
+    *   **Advancement:** Winning Match 3 clears the Tier. Clearing Tier 10 unlocks the next Tournament.
 
-### Persistence Implementation
+*   **Opponent Generation:**
+    *   **Base Elo:** Interpolated between Tournament Min and Max Elo based on Tier (0-9).
+    *   **Match Multipliers:**
+        *   Match 1: 1.00x
+        *   Match 2: 1.02x
+        *   Match 3 (Boss): 1.05x
+    *   **Stat Distribution:**
+        *   **Budget:** `Floor(TargetElo * 1.35)`.
+        *   **Strategy:** Bulk distribution for main stats, followed by a random distribution loop for the last 1000 points (Buffer).
+        *   **Smart Overflow:** If an opponent's Sacrifice stat exceeds 500 (Hard Cap), the excess is intelligently redistributed to their highest other stat.
 
-The game uses a **Lazy Initialization** pattern with **Hybrid Saving** to ensure data integrity and performance.
+### 4. Skills
 
-*   **Lazy Initialization:** State hooks initialize by reading `localStorage` immediately, preventing default values from overwriting saved data on refresh.
-    ```javascript
-    const [stats, setStats] = useState(() => {
-        const saved = localStorage.getItem('chess-career-save');
-        return saved ? JSON.parse(saved).stats : INITIAL_STATS;
-    });
-    ```
-*   **Hybrid Saving:**
-    1.  **Auto-Save:** Every 30 seconds.
-    2.  **Trigger-Save:** Immediately after critical actions (Upgrade, Skill Buy, Tournament Start/End).
-    3.  **Performance:** Passive resource ticks do *not* trigger saves to avoid UI lag on mobile devices.
+Skills are purchased with Ability Points (AP) and modify the simulation logic.
+
+*   **Opening:**
+    *   *Book Worm:* 1.5x Reward if win < 20 moves.
+    *   *Prep Files:* -20% Opening upgrade cost.
+    *   *Psychological Edge:* Enemy Power -5% in Midgame if Phase 1 won.
+    *   *Main Line:* +10% Power if Opening Level >= 100.
+    *   *Gambiteer:* +20% Tactics Power, start with -0.5 Eval.
+*   **Midgame:**
+    *   *Counter-Play:* +15% Power if losing at Move 11.
+    *   *Knight Outpost:* +10% Flat Midgame Power.
+    *   *Complex Positions:* Increases Random Variance (0.85-1.15).
+    *   *Tempo Gain:* Enemy Power 0.5x at Move 25.
+    *   *Battery Attack:* +10% Power if Phase 1 won.
+    *   *Positional Squeeze:* Winning moves gain +10% effectiveness.
+*   **Sacrifices:**
+    *   *Sound Sacrifice:* Failed sacrifices deal half damage.
+    *   *Tal's Spirit:* Max sacrifice roll +3.5.
+    *   *Desperado:* Double effectiveness if losing badly (<-3.0).
+    *   *Greek Gift:* 30% chance for +2.0 Eval at Move 20.
+    *   *Chaos Theory:* Scaling swing based on Enemy Tier.
+*   **Tactics:**
+    *   *Calculation:* +5% Tactics Power.
+    *   *Pin:* 20% chance to negate enemy move in Midgame.
+    *   *Fork:* +0.1 bonus to winning moves.
+    *   *Mate Net:* Win threshold reduced to 6.0 (from 8.0).
+*   **Endgame:**
+    *   *Fortress:* 40% Draw chance if losing (-2 to -5).
+    *   *Tablebase:* Enemy plays perfectly (no random) if player winning > 1.0 at Move 40.
+    *   *Zugzwang:* Enemy Power -1% cumulatively per turn.
+    *   *Lucena/Philidor:* Bar moves +/- 5% faster/slower based on state.
+
+## Technical Implementation
+
+*   **Framework:** React + Vite + Tailwind CSS.
+*   **State Management:** `useGameState` custom hook with independent state slices.
+*   **Persistence:**
+    *   **Lazy Initialization:** State is hydrated from `localStorage` (`chess-career-save`) on first render.
+    *   **Hybrid Saving:**
+        *   **Auto-Save:** Interval (30s).
+        *   **Force-Save:** On critical actions (Start Match, Buy Skill).
+        *   **Emergency Save:** On `beforeunload`.
+    *   **Performance:** High-frequency passive ticks do *not* trigger storage writes.
