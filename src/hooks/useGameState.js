@@ -71,28 +71,34 @@ export const useGameState = () => {
   const [resources, setResources] = useState(() => {
     const saved = loadSave();
     let initial = { ...INITIAL_RESOURCES };
-
     if (saved && saved.resources) {
         initial = { ...initial, ...saved.resources };
-
-        // Calculate Offline Gain
-        if (saved.lastSaveTime && saved.tournament) {
-            // Handle migration from old structure if necessary
-            let wins = 0;
-            if (saved.tournament.ranks) {
-                wins = getTotalWins(saved.tournament.ranks);
-            } else if (saved.tournament.wins) {
-                wins = saved.tournament.wins;
-            }
-
-            const offlineGain = calculateOfflineGain(saved.lastSaveTime, wins);
-            if (offlineGain > 0) {
-                console.log(`Offline Gain: ${offlineGain}`);
-                initial.studyTime += offlineGain;
-            }
-        }
     }
     return initial;
+  });
+
+  // Offline Calculation State
+  const [offlineReport, setOfflineReport] = useState(() => {
+      const saved = loadSave();
+      if (saved && saved.lastSaveTime && saved.tournament) {
+          // Migration logic to get ranks safe
+          let ranks = saved.tournament.ranks;
+          if (!ranks) {
+              const lvl = saved.tournament.currentLevel || 1;
+              ranks = { rapid: lvl, blitz: 1, classical: 1 };
+          }
+
+          // Calculate Rate (Cumulative)
+          const getIdx = (r) => (typeof r === 'object' ? r.tournamentIndex : 0);
+          const cumulativeIdx = (ranks.rapid ? getIdx(ranks.rapid) : 0) +
+                                (ranks.blitz ? getIdx(ranks.blitz) : 0) +
+                                (ranks.classical ? getIdx(ranks.classical) : 0);
+
+          const rate = calculatePassiveIncomePerSecond(cumulativeIdx);
+
+          return calculateOfflineGain(saved.lastSaveTime, rate);
+      }
+      return null;
   });
 
   // 2. Stats State
@@ -351,6 +357,16 @@ export const useGameState = () => {
       });
   }, [skills]);
 
+  const claimOfflineReward = useCallback(() => {
+      if (offlineReport) {
+          setResources(prev => ({
+              ...prev,
+              studyTime: prev.studyTime + offlineReport.gain
+          }));
+          setOfflineReport(null);
+      }
+  }, [offlineReport]);
+
   // Debug Actions
   const addResource = useCallback((amount) => {
       setResources(prev => ({ ...prev, studyTime: prev.studyTime + amount }));
@@ -362,6 +378,7 @@ export const useGameState = () => {
       setStats(INITIAL_STATS);
       setSkills(INITIAL_SKILLS);
       setTournament(INITIAL_TOURNAMENT);
+      setOfflineReport(null);
   }, []);
 
   const actions = useMemo(() => ({
@@ -370,8 +387,9 @@ export const useGameState = () => {
       startTournament,
       endTournament,
       addResource,
-      resetGame
-  }), [upgradeStat, purchaseSkill, startTournament, endTournament, addResource, resetGame]);
+      resetGame,
+      claimOfflineReward
+  }), [upgradeStat, purchaseSkill, startTournament, endTournament, addResource, resetGame, claimOfflineReward]);
 
   const derivedStats = {
       playerElo,
@@ -386,6 +404,7 @@ export const useGameState = () => {
       stats,
       skills,
       tournament,
+      offlineReport,
       lastSaveTime: Date.now()
   };
 

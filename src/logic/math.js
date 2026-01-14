@@ -47,14 +47,20 @@ export const calculateStatPower = (level) => {
   return level * 0.5;
 };
 
-export const calculateOfflineGain = (lastSaveTime, wins) => {
-  if (!lastSaveTime) return 0;
+export const calculateOfflineGain = (lastSaveTime, productionPerSecond) => {
+  if (!lastSaveTime) return null;
   
   const now = Date.now();
-  const diffInSeconds = (now - lastSaveTime) / 1000;
+  let diffInSeconds = (now - lastSaveTime) / 1000;
+
+  // Constraint A: Minimum 120s
+  if (diffInSeconds < 120) return null;
   
-  if (diffInSeconds <= 0) return 0;
+  // Constraint B: Cap at 24h (86400s)
+  if (diffInSeconds > 86400) diffInSeconds = 86400;
   
-  const incomePerSecond = calculatePassiveIncomePerSecond(wins);
-  return incomePerSecond * diffInSeconds;
+  return {
+      gain: productionPerSecond * diffInSeconds,
+      seconds: diffInSeconds
+  };
 };
