@@ -171,7 +171,7 @@ function App() {
                    <StatsHeader
                         resources={state.resources}
                         playerElo={derivedStats.playerElo}
-                        tournamentIndex={derivedStats.maxTournamentIndex}
+                        tournamentIndex={derivedStats.cumulativeTournamentIndex}
                    />
                ) : (
                    <SkillsHeader derivedStats={derivedStats} />

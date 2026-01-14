@@ -179,11 +179,11 @@ export const useGameState = () => {
       return getTotalWins(tournament.ranks);
   }, [tournament.ranks]);
 
-  // Calculate Max Tournament Index across all modes for economy
-  const maxTournamentIndex = useMemo(() => {
+  // Calculate Cumulative Tournament Index across all modes for economy
+  const cumulativeTournamentIndex = useMemo(() => {
       const { rapid, blitz, classical } = tournament.ranks;
       const getIdx = (r) => (typeof r === 'object' ? r.tournamentIndex : 0);
-      return Math.max(getIdx(rapid), getIdx(blitz), getIdx(classical));
+      return getIdx(rapid) + getIdx(blitz) + getIdx(classical);
   }, [tournament.ranks]);
 
   // Trigger-Save on Important Changes
@@ -220,15 +220,11 @@ export const useGameState = () => {
       setResources(prev => {
         const currentRanks = stateRef.current.tournament.ranks;
 
-        // Calculate Max Tournament Index
+        // Calculate Cumulative Tournament Index
         const getIdx = (r) => (typeof r === 'object' ? r.tournamentIndex : 0);
-        const maxIdx = Math.max(
-            getIdx(currentRanks.rapid),
-            getIdx(currentRanks.blitz),
-            getIdx(currentRanks.classical)
-        );
+        const cumulativeIdx = getIdx(currentRanks.rapid) + getIdx(currentRanks.blitz) + getIdx(currentRanks.classical);
 
-        const income = calculatePassiveIncomePerSecond(maxIdx);
+        const income = calculatePassiveIncomePerSecond(cumulativeIdx);
         return {
           ...prev,
           studyTime: prev.studyTime + income
@@ -295,14 +291,10 @@ export const useGameState = () => {
               const isTierClear = (currentRank.matchIndex + 1) === MATCHES_PER_TIER;
 
               if (isTierClear) {
-                  // Calculate Income based on Max Tournament Index
+                  // Calculate Income based on Cumulative Tournament Index
                   const getIdx = (r) => (typeof r === 'object' ? r.tournamentIndex : 0);
-                  const maxIdx = Math.max(
-                    getIdx(prev.ranks.rapid),
-                    getIdx(prev.ranks.blitz),
-                    getIdx(prev.ranks.classical)
-                  );
-                  const currentIncome = calculatePassiveIncomePerSecond(maxIdx);
+                  const cumulativeIdx = getIdx(prev.ranks.rapid) + getIdx(prev.ranks.blitz) + getIdx(prev.ranks.classical);
+                  const currentIncome = calculatePassiveIncomePerSecond(cumulativeIdx);
 
                   // Determine prize
                   let prizeSeconds = 600;
@@ -386,7 +378,7 @@ export const useGameState = () => {
       availableAbilityPoints,
       totalAbilityPoints,
       totalWins,
-      maxTournamentIndex // Export for UI
+      cumulativeTournamentIndex // Export for UI
   };
 
   const state = {
