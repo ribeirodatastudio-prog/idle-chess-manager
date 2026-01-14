@@ -142,7 +142,7 @@ export const ArenaPanel = memo(({
               <span className="text-yellow-500 uppercase text-xs font-bold">
                   {selectedMode === 'rapid' && 'Standard Weights'}
                   {selectedMode === 'blitz' && 'Instincts x1.8 | Theory x0.6'}
-                  {selectedMode === 'classical' && 'Theory x1.5 | Instincts x0.6'}
+                  {selectedMode === 'classical' && 'Theory x1.5 | Defense x1.5 | Instincts x0.6'}
               </span>
             </p>
 

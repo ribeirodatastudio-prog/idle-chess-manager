@@ -10,7 +10,7 @@ export const PHASES = {
 
 const getRandom = (min, max) => Math.random() * (max - min) + min;
 
-const applyModeWeights = (stats, mode) => {
+export const applyModeWeights = (stats, mode) => {
     // Clone stats to avoid mutation
     const s = { ...stats };
 
@@ -21,6 +21,7 @@ const applyModeWeights = (stats, mode) => {
     if (mode === 'classical') {
         theoryWeight = 1.5;
         instinctWeight = 0.6;
+        s.defense *= 1.5;
     } else if (mode === 'blitz') {
         theoryWeight = 0.6;
         instinctWeight = 1.8;
