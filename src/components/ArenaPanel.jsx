@@ -1,6 +1,10 @@
 import React, { useState, memo } from 'react';
 import { TOURNAMENT_CONFIG } from '../logic/tournaments';
 
+const MODES = ['rapid', 'blitz', 'classical'];
+const MATCH_INDICATORS = [0, 1, 2];
+const CHESSBOARD_SQUARES = Array.from({ length: 64 });
+
 export const ArenaPanel = memo(({
   tournament, 
   simulationState, 
@@ -50,7 +54,7 @@ export const ArenaPanel = memo(({
       <div className="relative z-10 shrink-0 mb-4">
           {!active ? (
               <div className="flex justify-center space-x-2 mb-2">
-                  {['rapid', 'blitz', 'classical'].map(mode => (
+                  {MODES.map(mode => (
                       <button
                         key={mode}
                         onClick={() => setSelectedMode(mode)}
@@ -80,7 +84,7 @@ export const ArenaPanel = memo(({
                 Tier <span className="text-yellow-500">{tier + 1}</span> / 10
              </h2>
              <div className="flex justify-center space-x-2 mt-1">
-                 {[0, 1, 2].map(i => (
+                 {MATCH_INDICATORS.map(i => (
                      <div key={i} className={`w-3 h-3 rounded-full border border-gray-600 ${
                          i < match ? 'bg-green-500' :
                          i === match ? 'bg-yellow-500 animate-pulse' : 'bg-gray-800'
@@ -179,7 +183,7 @@ export const ArenaPanel = memo(({
             <div className="h-32 flex items-center justify-center bg-black/30 rounded border border-gray-700/50">
                {/* Simple Simulation Visualizer */}
                <div className="grid grid-cols-8 grid-rows-8 gap-0.5 w-24 h-24 opacity-50">
-                  {Array.from({ length: 64 }).map((_, i) => (
+                  {CHESSBOARD_SQUARES.map((_, i) => (
                     <div key={i} className={`${(Math.floor(i / 8) + i) % 2 === 0 ? 'bg-gray-600' : 'bg-gray-800'}`}></div>
                   ))}
                </div>
