@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, memo } from 'react';
 import { TOURNAMENT_CONFIG } from '../logic/tournaments';
 
-export const ArenaPanel = ({ 
+export const ArenaPanel = memo(({
   tournament, 
   simulationState, 
   onStartTournament 
@@ -189,4 +189,4 @@ export const ArenaPanel = ({
       </div>
     </div>
   );
-};
+});

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useGameState } from './hooks/useGameState';
 import { generateOpponentStats, calculateMove, PHASES } from './logic/simulation';
 import { StatsPanel, StatsHeader } from './components/StatsPanel';
@@ -33,7 +33,7 @@ function App() {
   const simulationInterval = useRef(null);
 
   // Start Tournament Handler (Updated for Modes)
-  const handleStartTournament = (mode) => {
+  const handleStartTournament = useCallback((mode) => {
     // Generate opponent based on current rank object
     const currentModeRank = state.tournament.ranks[mode];
 
@@ -59,7 +59,7 @@ function App() {
     
     // Update global state - passing the FULL object to preserve identity
     actions.startTournament(fullOpponentStats, mode);
-  };
+  }, [state.tournament.ranks, actions, state.skills]);
 
   // Simulation Loop
   useEffect(() => {
