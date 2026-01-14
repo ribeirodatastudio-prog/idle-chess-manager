@@ -69,8 +69,8 @@ export const generateOpponentStats = (rankData) => {
 
   const targetElo = Math.floor(baseElo * multiplier);
 
-  // Total Stats Sum = Elo - 100
-  let totalStats = targetElo - 100;
+  // Total Stats Sum = Elo * 1.35 (Budget Increase)
+  let totalStats = Math.floor(targetElo * 1.35);
   
   // Ensure minimum stats
   const numStats = STATS.length;
@@ -88,18 +88,34 @@ export const generateOpponentStats = (rankData) => {
   
   let remainingPoints = totalStats - numStats;
   
-  // Random Distribution with Cap Check
+  // Random Distribution
   while (remainingPoints > 0) {
     const randomStat = STATS[Math.floor(Math.random() * numStats)];
-
-    // Hard Cap for Sacrifice (500)
-    if (randomStat === 'sacrifices' && stats[randomStat] >= 500) {
-        // Skip adding point, do NOT decrement remainingPoints
-        continue;
-    }
-
     stats[randomStat]++;
     remainingPoints--;
+  }
+
+  // Smart Overflow Redistribution (Sacrifice Cap > 500)
+  if (stats.sacrifices > 500) {
+      const overflow = stats.sacrifices - 500;
+      stats.sacrifices = 500;
+
+      // Find highest stat (excluding sacrifices) to dump overflow
+      let maxVal = -1;
+      let maxKey = '';
+
+      STATS.forEach(key => {
+          if (key === 'sacrifices') return;
+          if (stats[key] > maxVal) {
+              maxVal = stats[key];
+              maxKey = key;
+          }
+      });
+
+      // If found (should always be true unless all others are 0?), add overflow
+      if (maxKey) {
+          stats[maxKey] += overflow;
+      }
   }
 
   // Identity
