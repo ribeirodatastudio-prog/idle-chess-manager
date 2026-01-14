@@ -168,7 +168,11 @@ function App() {
            {/* Sticky Header Area */}
            <div className="p-4 pb-0 bg-gray-900 z-10 shrink-0">
                {activeTab === 'stats' ? (
-                   <StatsHeader resources={state.resources} playerElo={derivedStats.playerElo} />
+                   <StatsHeader
+                        resources={state.resources}
+                        playerElo={derivedStats.playerElo}
+                        tournamentIndex={derivedStats.maxTournamentIndex}
+                   />
                ) : (
                    <SkillsHeader derivedStats={derivedStats} />
                )}

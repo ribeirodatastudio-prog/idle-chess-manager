@@ -179,6 +179,13 @@ export const useGameState = () => {
       return getTotalWins(tournament.ranks);
   }, [tournament.ranks]);
 
+  // Calculate Max Tournament Index across all modes for economy
+  const maxTournamentIndex = useMemo(() => {
+      const { rapid, blitz, classical } = tournament.ranks;
+      const getIdx = (r) => (typeof r === 'object' ? r.tournamentIndex : 0);
+      return Math.max(getIdx(rapid), getIdx(blitz), getIdx(classical));
+  }, [tournament.ranks]);
+
   // Trigger-Save on Important Changes
   useEffect(() => {
       saveGame();
@@ -211,20 +218,17 @@ export const useGameState = () => {
   useEffect(() => {
     const interval = setInterval(() => {
       setResources(prev => {
-        // Use totalWins for income
-        // We need to access totalWins inside here.
-        // Can't use `totalWins` from outer scope easily in interval if we want to avoid recreating interval.
-        // But `tournament` changes when ranks change.
-        // Let's rely on prev state? No, tournament is separate state.
-
-        // Better: Use `tournament` in dependency array and recreate interval?
-        // Or calculate totalWins from `prevTournament` ref if we had one.
-        // Actually, we can use the `stateRef` which is always current!
-
         const currentRanks = stateRef.current.tournament.ranks;
-        const currentWins = getTotalWins(currentRanks);
 
-        const income = calculatePassiveIncomePerSecond(currentWins);
+        // Calculate Max Tournament Index
+        const getIdx = (r) => (typeof r === 'object' ? r.tournamentIndex : 0);
+        const maxIdx = Math.max(
+            getIdx(currentRanks.rapid),
+            getIdx(currentRanks.blitz),
+            getIdx(currentRanks.classical)
+        );
+
+        const income = calculatePassiveIncomePerSecond(maxIdx);
         return {
           ...prev,
           studyTime: prev.studyTime + income
@@ -284,23 +288,34 @@ export const useGameState = () => {
   const endTournament = useCallback((result, finalMoveCount) => {
       setTournament(prev => {
           if (result === 'win') {
-              const currentWins = getTotalWins(prev.ranks);
-              const currentIncome = calculatePassiveIncomePerSecond(currentWins);
-
-              // Determine prize
-              let prizeSeconds = 600;
-              if (skills['book_worm'] && finalMoveCount < 20) {
-                  prizeSeconds *= 1.5;
-              }
-
-              // Award Prize
-              setResources(res => ({
-                  ...res,
-                  studyTime: res.studyTime + (currentIncome * prizeSeconds)
-              }));
-
               const currentMode = prev.activeMode || 'rapid';
               const currentRank = prev.ranks[currentMode];
+
+              // Check for Tier Clear (Match 0, 1, 2 -> Clear if matchIndex + 1 == 3)
+              const isTierClear = (currentRank.matchIndex + 1) === MATCHES_PER_TIER;
+
+              if (isTierClear) {
+                  // Calculate Income based on Max Tournament Index
+                  const getIdx = (r) => (typeof r === 'object' ? r.tournamentIndex : 0);
+                  const maxIdx = Math.max(
+                    getIdx(prev.ranks.rapid),
+                    getIdx(prev.ranks.blitz),
+                    getIdx(prev.ranks.classical)
+                  );
+                  const currentIncome = calculatePassiveIncomePerSecond(maxIdx);
+
+                  // Determine prize
+                  let prizeSeconds = 600;
+                  if (skills['book_worm'] && finalMoveCount < 20) {
+                      prizeSeconds *= 1.5;
+                  }
+
+                  // Award Prize
+                  setResources(res => ({
+                      ...res,
+                      studyTime: res.studyTime + (currentIncome * prizeSeconds)
+                  }));
+              }
 
               // Progression Logic
               let newMatch = currentRank.matchIndex + 1;
@@ -370,7 +385,8 @@ export const useGameState = () => {
       playerElo,
       availableAbilityPoints,
       totalAbilityPoints,
-      totalWins // Export this for UI
+      totalWins,
+      maxTournamentIndex // Export for UI
   };
 
   const state = {
