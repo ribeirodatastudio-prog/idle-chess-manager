@@ -82,20 +82,25 @@ export const generateOpponentStats = (rankData) => {
     midgame: 1,
     endgame: 1,
     tactics: 1,
-    sacrifices: 1
+    sacrifices: 1,
+    defense: 1
   };
   
   let remainingPoints = totalStats - numStats;
   
-  // Random Distribution
+  // Random Distribution with Cap Check
   while (remainingPoints > 0) {
     const randomStat = STATS[Math.floor(Math.random() * numStats)];
+
+    // Hard Cap for Sacrifice (500)
+    if (randomStat === 'sacrifices' && stats[randomStat] >= 500) {
+        // Skip adding point, do NOT decrement remainingPoints
+        continue;
+    }
+
     stats[randomStat]++;
     remainingPoints--;
   }
-
-  // Ensure Defense is initialized if missing (fallback for migration or logic gaps)
-  if (!stats.defense) stats.defense = 1;
 
   // Identity
   const identity = getOpponentIdentity(stats);
