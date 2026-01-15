@@ -261,7 +261,7 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
   // --- HYBRID PROBABILISTIC COMBAT ENGINE ---
 
   // 1. Constants & Parameters
-  const S = 0.30;
+  const S = 0.15;
   const a = 6.0;
   const gamma = 1.6;
   const minProg = 0.30;

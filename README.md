@@ -44,15 +44,15 @@ Matches are simulated move-by-move (50 moves max). The outcome is determined by 
 The combat engine uses a **Hybrid Continuous Magnitude + Probabilistic Initiative** model.
 
 **1. Phase Configuration**
-*   **Opening (Moves 1-15):** K_phase scales from 0.25 to 0.35, MaxClamp scales from 0.30 to 0.45. `BaseSum = Opening + (Tactics * 0.2)`.
-*   **Midgame (Moves 16-40):** K_phase scales from 0.35 to 0.60, MaxClamp scales from 0.45 to 0.75. `BaseSum = Midgame + (Tactics * 0.8)`.
-*   **Endgame (Moves 41-50):** K_phase scales from 0.60 to 0.90, MaxClamp scales from 0.75 to 1.0. `BaseSum = Endgame + (Tactics * 1.5)`.
+*   **Opening (Moves 1-10):** K_phase scales from 0.25 to 0.35, MaxClamp scales from 0.30 to 0.45. `BaseSum = Opening + (Tactics * 0.2)`.
+*   **Midgame (Moves 11-30):** K_phase scales from 0.35 to 0.60, MaxClamp scales from 0.45 to 0.75. `BaseSum = Midgame + (Tactics * 0.8)`.
+*   **Endgame (Moves 31-50):** K_phase scales from 0.60 to 0.90, MaxClamp scales from 0.75 to 1.0. `BaseSum = Endgame + (Tactics * 1.5)`.
 
 **2. The Algorithm**
 *   **Stats to Efficiency:** `PlayerEff` and `EnemyEff` are derived from the Phase's BaseSum logic (Game Mode weights and Skill Power modifiers apply here).
 *   **Step A (Ratio):** `r = Math.log(PlayerEff / EnemyEff)`.
 *   **Step B (Magnitude):** How much the evaluation changes.
-    *   `adv = Math.tanh(abs(r) / S)` where `S = 0.30`.
+    *   `adv = Math.tanh(abs(r) / S)` where `S = 0.15`.
     *   `rawMag = minProg + (1.0 - minProg) * adv^gamma` where `gamma = 1.6`, `minProg = 0.30`.
     *   `deltaMag = K_phase * rawMag`.
 *   **Step C (Direction):** Who wins the turn (Probabilistic).
