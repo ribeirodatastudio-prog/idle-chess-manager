@@ -9,6 +9,7 @@ export const PHASES = {
 };
 
 const getRandom = (min, max) => Math.random() * (max - min) + min;
+const lerp = (start, end, t) => start + (end - start) * t;
 
 export const applyModeWeights = (stats, mode) => {
     // Clone stats to avoid mutation
@@ -163,7 +164,7 @@ export const generateOpponentStats = (rankData) => {
 };
 
 export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, currentEval, skills = {}, phase1Won = false, move11Eval = 0, mode = 'rapid', sacrificesCount = 0) => {
-  // Apply Mode Weights first
+  // --- PREPARATION & WEIGHTS ---
   const playerStats = applyModeWeights(rawPlayerStats, mode);
   const enemyStats = applyModeWeights(rawEnemyStats, mode);
 
@@ -178,32 +179,54 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
       enemyStats.tactics *= tacticMult;
   }
 
+  // --- PHASE DETERMINATION & BASE SUMS ---
   let phase = '';
   let playerBaseSum = 0;
   let enemyBaseSum = 0;
   let logMessage = '';
+
+  // Define K_phase and MaxClamp dynamically
+  let K_phase = 0.25;
+  let MaxClamp = 0.30;
   
-  // Determine Phase and Relevant Stats
   if (moveNumber <= PHASES.OPENING.end) {
     phase = PHASES.OPENING.name;
     
+    // Stats
     playerBaseSum = playerStats.opening + (playerStats.tactics * 0.2);
     enemyBaseSum = enemyStats.opening + (enemyStats.tactics * 0.2);
+
+    // Dynamic Interpolation: Moves 1-10
+    const progress = Math.min(1.0, Math.max(0.0, (moveNumber - 1) / 9));
+    K_phase = lerp(0.25, 0.35, progress);
+    MaxClamp = lerp(0.30, 0.45, progress);
     
   } else if (moveNumber <= PHASES.MIDGAME.end) {
     phase = PHASES.MIDGAME.name;
     
+    // Stats
     playerBaseSum = playerStats.midgame + (playerStats.tactics * 0.8);
     enemyBaseSum = enemyStats.midgame + (enemyStats.tactics * 0.8);
+
+    // Dynamic Interpolation: Moves 11-30
+    const progress = Math.min(1.0, Math.max(0.0, (moveNumber - 11) / 19));
+    K_phase = lerp(0.35, 0.60, progress);
+    MaxClamp = lerp(0.45, 0.75, progress);
 
   } else {
     phase = PHASES.ENDGAME.name;
     
+    // Stats
     playerBaseSum = playerStats.endgame + (playerStats.tactics * 1.5);
     enemyBaseSum = enemyStats.endgame + (enemyStats.tactics * 1.5);
+
+    // Dynamic Interpolation: Moves 31-50
+    const progress = Math.min(1.0, Math.max(0.0, (moveNumber - 31) / 19));
+    K_phase = lerp(0.60, 0.90, progress);
+    MaxClamp = lerp(0.75, 1.0, progress);
   }
 
-  // --- NEW SKILL LOGIC ---
+  // --- SKILL MODIFIERS (BASE STATS) ---
 
   // Skill: Deep Blue Calculation
   // Player Power scales exponentially (1.02 ^ MoveNumber)
@@ -211,8 +234,8 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
       playerBaseSum *= Math.pow(1.02, moveNumber);
   }
 
-  // Skill: Iron Curtain
-  // -50% Attack, +40% Defense
+  // Skill: Iron Curtain (Attack Reduction)
+  // -50% Attack
   if (skills.iron_curtain) {
       playerBaseSum *= 0.5;
   }
@@ -221,8 +244,6 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
   // Cumulative enemy debuff in late game (Moves 35+).
   if (skills.time_trouble && moveNumber > 35) {
       const dropOff = 1 - (0.04 * (moveNumber - 35));
-      // Ensure it doesn't go negative or too low?
-      // Assuming math is correct: at move 60 (25 moves later), 1 - 1 = 0.
       enemyBaseSum *= Math.max(0, dropOff);
   }
 
@@ -284,7 +305,6 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
   // Clamp the base move delta (before sacrifices/skills)
   let delta = Math.max(-MaxClamp, Math.min(MaxClamp, finalDelta));
   
-  // Sacrifice Mechanic (One-Time Gambit)
   let sacrificeSwing = 0;
   let triggeredSacrifice = false;
   let triggerBrilliantBounty = false;
@@ -309,17 +329,12 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
 
   if (moveNumber > 5 && sacrificesCount < maxSacrifices) {
     let initiator = null;
-
-    // Independent triggers for Player and Enemy
     const playerRoll = Math.random();
     const enemyRoll = Math.random();
 
-    // Player Trigger
     if (playerRoll < sacrificeChance) {
         initiator = 'player';
-    }
-    // Enemy Trigger (if Player didn't trigger to avoid double events per turn)
-    else if (enemyRoll < sacrificeChance) {
+    } else if (enemyRoll < sacrificeChance) {
         initiator = 'enemy';
     }
 
@@ -329,7 +344,6 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
         const actorStats = isPlayer ? playerStats : enemyStats;
 
         // Success Check: Roll < (Level * 0.2)
-        // Max Level 500 * 0.2 = 100% chance.
         const successChance = Math.min(actorStats.sacrifices * 0.2, 100);
         const roll = Math.random() * 100;
         const isSuccess = roll < successChance;
@@ -344,23 +358,19 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
                 logMessage = 'Unsound Sacrifice... The opponent refutes it.';
             }
         } else {
-            // Enemy Logic
             if (isSuccess) {
-                // Enemy succeeds -> Hurts player (Delta decreases)
                 sacrificeSwing = -5.0;
                 logMessage = '!! OPPONENT SACRIFICE !! The AI unleashes chaos!';
             } else {
-                // Enemy fails -> Helps player (Delta increases)
                 sacrificeSwing = 2.0;
                 logMessage = 'Opponent blunders a sacrifice!';
             }
         }
-
         delta += sacrificeSwing;
     }
   }
   
-  // --- NEW SKILL LOGIC (Part 2: Delta Modifiers) ---
+  // --- SKILL MODIFIERS (RESULT) ---
 
   // Skill: Lasker's Defense
   // Double evaluation recovery if losing after Move 20.
@@ -372,50 +382,42 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
 
   let newEval = currentEval + delta;
 
-  // Endgame Snowball Effect: Multiplier if advantage > 1.0
+  // Endgame Snowball Effect
   if (phase === PHASES.ENDGAME.name) {
       if (newEval > 1.0) {
-          newEval *= 1.1; // 10% bonus for winning side
+          newEval *= 1.1;
       } else if (newEval < -1.0) {
-          newEval *= 1.1; // 10% penalty (bonus for opponent)
+          newEval *= 1.1;
       }
   }
   
-  // Resolution Logic
-  let result = null; // 'win', 'loss', 'draw', or null (continue)
+  // --- RESOLUTION ---
+
+  let result = null;
   
   // Skill: Decisive Blow
-  // Win/Lose Threshold reduced to +/- 5.0
   const winThreshold = skills.decisive_blow ? 5.0 : 8.0;
   
-  // 1. Check Win/Loss Bounds
+  // 1. Check Win/Loss
   if (newEval >= winThreshold) result = 'win';
   else if (newEval <= -winThreshold) result = 'loss';
   
-  // 2. Check Draw Condition A (Remis Zone)
-  // Move 30 to 49, Eval between -1.0 and +1.0 -> 15% chance
+  // 2. Check Draw A (Remis Zone 30-49)
   if (!result && moveNumber >= 30 && moveNumber <= 49) {
-    let drawChance = 0.15;
-    
     if (newEval > -1.0 && newEval < 1.0) {
-      if (Math.random() < drawChance) {
+      if (Math.random() < 0.15) {
         result = 'draw';
         logMessage = 'Draw agreed in deadlocked position.';
       }
     }
   }
   
-  // 3. Check Draw Condition B (Move 50 Limit) with Tie-Breaker
+  // 3. Check Draw B (Move 50 Limit)
   if (!result && moveNumber >= 50) {
-    // Skill: Iron Curtain (Win Condition)
-    // Survival at Move 50 counts as a WIN if Eval > -8.0 (and not already lost by threshold)
-    // Note: If we are here, newEval > -winThreshold (e.g. -5 or -8).
-    // So if Iron Curtain is active, we just need to return win.
     if (skills.iron_curtain && newEval > -8.0) {
         result = 'win';
         logMessage = 'Iron Curtain! Survival is Victory.';
     } else {
-        // Standard Tie-Breaker
         const playerAggression = playerStats.tactics + playerStats.sacrifices;
         const enemyAggression = enemyStats.tactics + enemyStats.sacrifices;
 
@@ -426,7 +428,6 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
             result = 'loss';
             logMessage = 'Draw avoided! Opponent wins by Tactical Superiority.';
         } else {
-            // True Draw
             result = 'draw';
             logMessage = 'Game drawn by move limit (50). Stats identical.';
         }
@@ -441,6 +442,7 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
     sacrificeSwing,
     logMessage,
     sacrificesCount: triggeredSacrifice ? sacrificesCount + 1 : sacrificesCount,
-    hasSacrificed: triggeredSacrifice
+    hasSacrificed: triggeredSacrifice,
+    triggerBrilliantBounty
   };
 };
