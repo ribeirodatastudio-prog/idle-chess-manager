@@ -11,6 +11,15 @@ export const PHASES = {
 const getRandom = (min, max) => Math.random() * (max - min) + min;
 const lerp = (start, end, t) => start + (end - start) * t;
 
+// Box-Muller transform for normal distribution
+const randomNormal = (mean, stdDev) => {
+    let u = 0, v = 0;
+    while(u === 0) u = Math.random();
+    while(v === 0) v = Math.random();
+    let num = Math.sqrt( -2.0 * Math.log( u ) ) * Math.cos( 2.0 * Math.PI * v );
+    return num * stdDev + mean;
+};
+
 export const applyModeWeights = (stats, mode) => {
     // Clone stats to avoid mutation
     const s = { ...stats };
@@ -120,6 +129,37 @@ export const generateOpponentStats = (rankData) => {
   }
 
   // Random Distribution (Remaining Buffer)
+
+  // Optimization: Use Normal Approximation for large buffers (>50)
+  // This avoids O(N) loop (approx 1000 iterations) and replaces it with O(STATS) logic.
+  if (remainingPoints > 50) {
+      for (let i = 0; i < numStats - 1; i++) {
+          if (remainingPoints <= 0) break;
+
+          const key = STATS[i];
+          const p = 1.0 / (numStats - i);
+
+          // Multinomial approximation using Normal distribution
+          const mean = remainingPoints * p;
+          const stdDev = Math.sqrt(remainingPoints * p * (1.0 - p));
+
+          let val = Math.round(randomNormal(mean, stdDev));
+
+          // Clamp to ensure validity
+          val = Math.max(0, Math.min(remainingPoints, val));
+
+          stats[key] += val;
+          remainingPoints -= val;
+      }
+
+      // Assign remainder to the last stat
+      if (remainingPoints > 0) {
+          stats[STATS[numStats - 1]] += remainingPoints;
+          remainingPoints = 0;
+      }
+  }
+
+  // Fallback: Standard Random Distribution (Small Buffer)
   while (remainingPoints > 0) {
     const randomStat = STATS[Math.floor(Math.random() * numStats)];
     stats[randomStat]++;
