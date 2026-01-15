@@ -1,55 +1,56 @@
-# QA Audit Report: Combat Logic Stress Test
+# QA Report: Combat Engine Upgrade
 
-**Role:** Senior QA Automation Engineer & Math Auditor
-**Date:** October 26, 2023
-**Status:** PASSED (All Critical Checks)
+## 1. Executive Summary
+**Issue:** User reported a logical anomaly where winning a move in a "lost" position resulted in a massive evaluation swing (equal to the opponent's winning magnitude).
+**Root Cause:** The previous engine used "Disparity Magnitude" regardless of *who* won the move. If the enemy was 10x stronger, the "Move Size" was maxed out. If the player won a 1% probability roll, they "stole" that maxed-out move size.
+**Fix:** Implemented **Direct Probability Mapping**.
+*   **Efficiency = Probability:** The winner's damage efficiency is now directly mapped to their probability of winning the move.
+*   **The "Lucky Shot" Rule:** If a player with 1% chance wins, their efficiency is clamped to **20%** (Floor).
+*   **The "Killer Instinct" Rule:** If a player with >90% chance wins, their efficiency is **100%** (Cap).
 
-## 1. Simulation Matrix & Logs
+## 2. Verification Data
 
-### [RAPID] - [Tier A: 100 Stats]
-> **Turn 1:** Eval 0.19 | Delta 0.19 | Phase: Opening
-> **Turn 50:** Result draw | Eval 0.45
-> **Conclusion:** Stable low-level gameplay. Math holds up at small numbers.
+### Scenario A: The "Stomp" (Player has ~1% Chance)
+*Old Behavior:*
+*   Enemy Wins: Delta = -0.35 (Max)
+*   Player Wins: Delta = +0.35 (Max) -> *Unrealistic volatility.*
 
-### [BULLET] - [Tier A: 100 Stats]
-> **Turn 1:** Eval 0.22 | Delta 0.22
-> **Events:**
-> - Turn 9: "Unsound Sacrifice... The opponent refutes it." (Player Trigger -> Fail)
-> - Turn 13: "Unsound Sacrifice... The opponent refutes it." (Player Trigger -> Fail)
-> - Turn 16: "Opponent blunders a sacrifice!" (AI Trigger -> Fail)
-> **Conclusion:** PASS. **AI Agency verified.** High Event frequency verified (3 events in <20 moves).
+*New Behavior:*
+*   Enemy Wins (99% Prob): Efficiency = 1.0 (Cap). Delta ≈ **-0.35**.
+*   Player Wins (1% Prob): Efficiency = 0.20 (Floor). Delta ≈ **+0.07**.
+*   *Result:* losing players can fight back, but they can't land "Nuclear hits" just by getting lucky.
 
-### [CHESS 960] - [Tier A: 100 Stats]
-> **Turn 1:** Eval 1.64 | Delta 1.64 (Opening Bonus Active)
-> **Turn 9:** Delta 0.68 (Opening Bonus Active)
-> **Turn 11:** Delta 1.05 (Midgame - Bonus Gone)
-> **Conclusion:** PASS. Phase shift logic confirmed (Delta increased when phase shifted to Midgame, reflecting the removal of the 1.75x Opening multiplier which was balanced by 1.75x enemy multiplier, transitioning to standard weights).
-> *Note: In 960, Opening mult is 1.75x. If both sides have it, the base sums are higher. Transition to Midgame (1.25x) changes the dynamic.*
+### Scenario B: Balanced Game (50/50)
+*Old Behavior:*
+*   Delta ≈ 0.08 (Fixed Floor).
 
-### [RAPID] - [Tier C: 1M Stats]
-> **Turn 1:** Eval 4659.78 | Delta 4659.78
-> **Conclusion:** PASS. Valid math (No Infinity/NaN).
-> *Observation:* Game ends instantly (Turn 1) due to high power delta (Eval > 8.0). This is expected behavior when simulating 1,000,000 (Player) vs 950,000 (Enemy) stats; the 50,000 point difference creates an insurmountable gap immediately.
+*New Behavior:*
+*   Efficiency ≈ 0.50.
+*   Delta = Base * 0.50 ≈ **0.04**.
+*   *Result:* Balanced games are tighter, more positional, and "drawish", matching real chess logic.
 
-## 2. Specific Logic Checks (Pass/Fail)
+### Scenario C: User's Specific Case (6 vs 20 Stats)
+The user is still severely outmatched (11x stat difference in Midgame).
+*   **Outcome:** The user will likely lose every move.
+*   **Improvement:** If the user *does* win a move, it will now be a small positional gain (+0.07) rather than a confusing "+0.30" spike.
 
-| Check | Result | Notes |
-| :--- | :--- | :--- |
-| **1 Million Stat Check** | **PASS** | 1M Attack vs 500k Def resulted in valid Delta (51976.02). No overflow/NaN. |
-| **AI Agency** | **PASS** | AI Opponent successfully triggered sacrifice event (Turn 16 in Bullet simulation). Logic Refactored to enable this. |
-| **Bullet Chaos** | **PASS** | High frequency of events observed in games that lasted long enough (>5 moves). |
-| **Gauntlet Scaling** | **PASS** | Verified 1.0x, 1.02x, 1.05x multipliers consistently across 5 different Tiers. |
+## 3. Revised Formulas (Source of Truth)
 
-## 3. Deep Logic Audit
-*   **Time Trouble / Iron Curtain:** Verified in code (`src/logic/simulation.js`). Logic correctly applies modifiers at Turn 35 and 50 respectively.
-*   **Sacrifice Mechanics:** Refactored to allow independent **Player** and **Enemy** triggers.
-    *   *Player Trigger:* Uses Player Sacrifice Stat. Success = +5.0 Eval (Player Win), Fail = -2.0 Eval.
-    *   *Enemy Trigger:* Uses Enemy Sacrifice Stat. Success = -5.0 Eval (Enemy Win), Fail = +2.0 Eval.
-*   **Stat Overflow:** Verified via 1M Stat Check. JavaScript `Number` type handles 1M+ safely (Max Safe Integer is 9 quadrillion).
+**Efficiency Calculation:**
+```javascript
+// 1. Identify Winner's Probability
+const winnerProb = isPlayerWinner ? p : (1.0 - p);
 
-## 4. Action Items Completed
-*   [x] **Fix AI Agency:** Implemented explicit "Enemy Sacrifice" logic in `calculateMove`.
-*   [x] **Stress Test Script:** Created `tests/stress_test_audit.js` for reproducible validation.
-*   [x] **Verification:** Confirmed all math holds up under stress (1M+ stats).
+// 2. Map to Efficiency
+let efficiency = winnerProb;
 
-**Final Verdict:** The Combat Logic is robust, mathematically sound, and ready for production.
+// 3. Apply Constraints
+if (efficiency < 0.20) efficiency = 0.20; // Luck Floor
+if (efficiency >= 0.90) efficiency = 1.0; // Killer Instinct Cap
+```
+
+**Final Delta:**
+```javascript
+// Variance (0.9 to 1.1) adds organic noise
+finalDelta = sign * deltaMag * efficiency * variance;
+```

@@ -297,7 +297,27 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
   const sign = isPlayerWinner ? 1 : -1;
 
   // Step D: Final Calculation & Clamping
-  let finalDelta = sign * deltaMag;
+
+  // 1. Who won? What was their chance?
+  const winnerProb = isPlayerWinner ? p : (1.0 - p);
+
+  // 2. Calculate Efficiency (Direct Mapping)
+  let efficiency = winnerProb;
+
+  // Apply Floor (Min 20%)
+  if (efficiency < 0.20) {
+      efficiency = 0.20;
+  }
+
+  // Apply Cap (Killer Instinct at 90%+)
+  if (efficiency >= 0.90) {
+      efficiency = 1.0;
+  }
+
+  // 3. Final Calculation
+  // Random Variance (0.9 to 1.1) for organic feel
+  const variance = 0.9 + Math.random() * 0.2;
+  const finalDelta = sign * deltaMag * efficiency * variance;
   
   // Clamp the base move delta (before sacrifices/skills)
   let delta = Math.max(-MaxClamp, Math.min(MaxClamp, finalDelta));
