@@ -182,6 +182,7 @@ function App() {
                         resources={state.resources}
                         playerElo={derivedStats.playerElo}
                         tournamentIndex={derivedStats.cumulativeTournamentIndex}
+                        puzzleMultiplier={state.puzzleStats.multiplier}
                    />
                ) : (
                    <SkillsHeader derivedStats={derivedStats} />

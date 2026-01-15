@@ -51,8 +51,8 @@ const StatCard = ({ statKey, level, resources, onUpgrade }) => {
   );
 };
 
-export const StatsHeader = ({ resources, playerElo, tournamentIndex = 0 }) => {
-  const incomePerMinute = calculatePassiveIncomePerMinute(tournamentIndex);
+export const StatsHeader = ({ resources, playerElo, tournamentIndex = 0, puzzleMultiplier = 1.0 }) => {
+  const incomePerMinute = calculatePassiveIncomePerMinute(tournamentIndex) * puzzleMultiplier;
 
   return (
     <div className="mb-4 grid grid-cols-2 gap-2">
