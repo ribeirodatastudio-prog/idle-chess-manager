@@ -44,9 +44,9 @@ Matches are simulated move-by-move (50 moves max). The outcome is determined by 
 The combat engine uses a **Hybrid Continuous Magnitude + Probabilistic Initiative** model.
 
 **1. Phase Configuration**
-*   **Opening (Moves 1-15):** K_phase = 0.25, MaxClamp = 0.30. `BaseSum = Opening + (Tactics * 0.2)`.
-*   **Midgame (Moves 16-40):** K_phase = 0.35, MaxClamp = 0.45. `BaseSum = Midgame + (Tactics * 0.8)`.
-*   **Endgame (Moves 41-50):** K_phase = 0.45, MaxClamp = 0.60. `BaseSum = Endgame + (Tactics * 1.5)`.
+*   **Opening (Moves 1-15):** K_phase scales from 0.25 to 0.35, MaxClamp scales from 0.30 to 0.45. `BaseSum = Opening + (Tactics * 0.2)`.
+*   **Midgame (Moves 16-40):** K_phase scales from 0.35 to 0.60, MaxClamp scales from 0.45 to 0.75. `BaseSum = Midgame + (Tactics * 0.8)`.
+*   **Endgame (Moves 41-50):** K_phase scales from 0.60 to 0.90, MaxClamp scales from 0.75 to 1.0. `BaseSum = Endgame + (Tactics * 1.5)`.
 
 **2. The Algorithm**
 *   **Stats to Efficiency:** `PlayerEff` and `EnemyEff` are derived from the Phase's BaseSum logic (Game Mode weights and Skill Power modifiers apply here).

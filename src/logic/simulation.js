@@ -257,18 +257,6 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
   const gamma = 1.6;
   const minProg = 0.30;
 
-  // 2. Phase Configuration
-  let K_phase = 0.25;
-  let MaxClamp = 0.30;
-
-  if (phase === PHASES.MIDGAME.name) {
-      K_phase = 0.35;
-      MaxClamp = 0.45;
-  } else if (phase === PHASES.ENDGAME.name) {
-      K_phase = 0.45;
-      MaxClamp = 0.60;
-  }
-
   // 3. The Algorithm
 
   // Step A: Base Ratio (Logarithmic)
