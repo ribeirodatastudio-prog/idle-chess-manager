@@ -1,9 +1,40 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 
 const PuzzleRoom = ({ state, actions }) => {
   const { puzzleStats, activePuzzle } = state;
   const { solvePuzzle } = actions;
+
+  const [isSolving, setIsSolving] = useState(false);
+  const [feedback, setFeedback] = useState(null);
+
+  const handleSolve = () => {
+    if (isSolving) return;
+
+    setIsSolving(true);
+    setFeedback(null);
+
+    // Capture current puzzle for feedback logic
+    const currentPuzzle = activePuzzle;
+
+    setTimeout(() => {
+        const result = solvePuzzle();
+        setIsSolving(false);
+
+        if (result && !result.success) {
+             const skill1 = currentPuzzle.skills[0];
+             const skill2 = currentPuzzle.skills[1];
+             const val1 = state.stats[skill1] || 0;
+             const val2 = state.stats[skill2] || 0;
+
+             let weakStat = skill1;
+             if (val2 < val1) weakStat = skill2;
+
+             const formatName = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+             setFeedback(`Analysis failed... You should study more ${formatName(weakStat)}`);
+        }
+    }, 4000);
+  };
 
   if (!activePuzzle) {
     return (
@@ -24,7 +55,7 @@ const PuzzleRoom = ({ state, actions }) => {
         </div>
       </div>
 
-      <div className="bg-gray-700 p-4 rounded-md mb-4 border border-gray-600">
+      <div className="bg-gray-700 p-4 rounded-md mb-4 border border-gray-600 relative">
         <div className="flex justify-between items-start mb-2">
             <div>
                 <h3 className="text-lg font-bold text-yellow-400">{activePuzzle.name}</h3>
@@ -43,16 +74,28 @@ const PuzzleRoom = ({ state, actions }) => {
                 </span>
             ))}
         </div>
+
+        {/* Overlay for Feedback */}
+        {feedback && (
+            <div className="absolute inset-0 bg-gray-900/90 flex items-center justify-center rounded-md p-4 text-center animate-in fade-in duration-300">
+                <p className="text-red-400 font-bold">{feedback}</p>
+            </div>
+        )}
       </div>
 
       <button
-        onClick={solvePuzzle}
-        className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded shadow-lg transition-all active:scale-95"
+        onClick={handleSolve}
+        disabled={isSolving}
+        className={`w-full py-3 font-bold rounded shadow-lg transition-all
+            ${isSolving
+                ? 'bg-gray-600 text-gray-400 cursor-wait'
+                : 'bg-blue-600 hover:bg-blue-500 text-white active:scale-95'
+            }`}
       >
-        Solve Puzzle
+        {isSolving ? 'Analyzing Position...' : 'Solve Puzzle'}
       </button>
       <p className="text-xs text-center text-gray-500 mt-2">
-          Solve to increase Production Multiplier. Failure reduces Puzzle Elo.
+          Solve to increase Production Multiplier. Difficulty never decreases.
       </p>
     </div>
   );

@@ -467,68 +467,43 @@ export const useGameState = () => {
   }, [activePuzzle, generatePuzzle]);
 
   const solvePuzzle = useCallback(() => {
-    if (!activePuzzle) return;
+    if (!activePuzzle) return { success: false };
 
     const result = resolvePuzzle(activePuzzle, stats, activePuzzle.difficulty);
 
+    let nextElo = puzzleStats.elo;
+    let nextMult = puzzleStats.multiplier;
+
     if (result.success) {
-        setPuzzleStats(prev => ({
-            elo: Math.floor(prev.elo * 1.15),
-            multiplier: prev.multiplier * 1.01
-        }));
+        nextElo = Math.floor(nextElo * 1.15);
+        nextMult = nextMult * 1.01;
     } else {
-        setPuzzleStats(prev => ({
-            ...prev,
-            elo: Math.floor(prev.elo * 0.90)
-        }));
+        // Difficulty should never go lower
+        // nextElo = Math.floor(nextElo * 0.90);
     }
 
-    // Clear and regenerate (immediate)
-    setActivePuzzle(null);
-    // Effect will trigger regeneration, or we can do it here.
-    // Doing it here avoids a render cycle where puzzle is null.
-
-    // Generate new one immediately
-    const theme = PUZZLE_THEMES[Math.floor(Math.random() * PUZZLE_THEMES.length)];
-    // Need fresh Elo? The state update above is async.
-    // We should probably rely on useEffect or calculate next Elo here.
-    // Let's use functional update or re-run generate logic inside functional update.
-
-    // Actually, simply setting activePuzzle to null and letting the useEffect handle it is safer
-    // but might cause a flicker.
-    // Better: Calculate next stats and generate immediately.
-
-    setPuzzleStats(prev => {
-        let nextElo = prev.elo;
-        let nextMult = prev.multiplier;
-
-        if (result.success) {
-            nextElo = Math.floor(nextElo * 1.15);
-            nextMult = nextMult * 1.01;
-        } else {
-            nextElo = Math.floor(nextElo * 0.90);
-        }
-
-        const nextTarget = calculatePuzzleDifficulty(nextElo);
-        let suffix = ' I';
-        if (nextElo >= 500) suffix = ' III';
-        else if (nextElo >= 100) suffix = ' II';
-
-        setActivePuzzle({
-            themeId: theme.id,
-            name: theme.name + suffix,
-            flavor: theme.flavor,
-            skills: theme.skills,
-            difficulty: nextTarget
-        });
-
-        return {
-            elo: nextElo,
-            multiplier: nextMult
-        };
+    setPuzzleStats({
+        elo: nextElo,
+        multiplier: nextMult
     });
 
-  }, [activePuzzle, stats]);
+    // Generate new puzzle immediately based on NEW elo
+    const theme = PUZZLE_THEMES[Math.floor(Math.random() * PUZZLE_THEMES.length)];
+    const nextTarget = calculatePuzzleDifficulty(nextElo);
+    let suffix = ' I';
+    if (nextElo >= 500) suffix = ' III';
+    else if (nextElo >= 100) suffix = ' II';
+
+    setActivePuzzle({
+        themeId: theme.id,
+        name: theme.name + suffix,
+        flavor: theme.flavor,
+        skills: theme.skills,
+        difficulty: nextTarget
+    });
+
+    return result;
+  }, [activePuzzle, stats, puzzleStats]);
 
   // Debug Actions
   const addResource = useCallback((amount) => {
