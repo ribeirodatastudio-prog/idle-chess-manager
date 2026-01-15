@@ -35,6 +35,9 @@ export const applyModeWeights = (stats, mode) => {
         s.defense *= 0.1;
 
         return s; // Early return as logic differs from standard weights
+    } else if (mode === 'chess960') {
+        s.opening *= 1.75;
+        s.defense *= 0.85;
     }
 
     // Apply weights
@@ -164,6 +167,17 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
   const playerStats = applyModeWeights(rawPlayerStats, mode);
   const enemyStats = applyModeWeights(rawEnemyStats, mode);
 
+  // Chess 960: Dynamic Tactics
+  if (mode === 'chess960') {
+      let tacticMult = 1.0;
+      if (moveNumber <= 10) tacticMult = 1.75; // Chaos phase
+      else if (moveNumber <= 30) tacticMult = 1.25; // Stabilizing
+      else tacticMult = 1.0; // Pure chess
+
+      playerStats.tactics *= tacticMult;
+      enemyStats.tactics *= tacticMult;
+  }
+
   let phase = '';
   let playerBaseSum = 0;
   let enemyBaseSum = 0;
@@ -260,6 +274,9 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
   } else if (mode === 'bullet') {
       sacrificeChance = 0.10;
       maxSacrifices = 3;
+  } else if (mode === 'chess960') {
+      sacrificeChance = 0.01;
+      maxSacrifices = 1;
   }
 
   if (moveNumber > 5 && sacrificesCount < maxSacrifices && Math.random() < sacrificeChance) {

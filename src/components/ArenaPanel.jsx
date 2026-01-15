@@ -1,7 +1,7 @@
 import React, { useState, memo } from 'react';
 import { TOURNAMENT_CONFIG } from '../logic/tournaments';
+import { GAME_MODES } from '../logic/gameModes';
 
-const MODES = ['rapid', 'blitz', 'classical', 'bullet'];
 const MATCH_INDICATORS = [0, 1, 2];
 const CHESSBOARD_SQUARES = Array.from({ length: 64 });
 
@@ -53,18 +53,18 @@ export const ArenaPanel = memo(({
       {/* Header & Mode Selector */}
       <div className="relative z-10 shrink-0 mb-4">
           {!active ? (
-              <div className="flex justify-center space-x-2 mb-2">
-                  {MODES.map(mode => (
+              <div className="flex flex-wrap justify-center gap-2 mb-2">
+                  {GAME_MODES.map(modeObj => (
                       <button
-                        key={mode}
-                        onClick={() => setSelectedMode(mode)}
+                        key={modeObj.id}
+                        onClick={() => setSelectedMode(modeObj.id)}
                         className={`px-3 py-1 text-xs font-bold rounded-full transition-colors uppercase tracking-wider ${
-                            selectedMode === mode
+                            selectedMode === modeObj.id
                                 ? 'bg-yellow-500 text-black'
                                 : 'bg-gray-800 text-gray-500 hover:bg-gray-700'
                         }`}
                       >
-                          {mode}
+                          {modeObj.label}
                       </button>
                   ))}
               </div>
@@ -144,10 +144,7 @@ export const ArenaPanel = memo(({
             <p className="text-gray-400 mb-4 text-sm sm:text-base max-w-xs mx-auto">
               Prepare your stats. <br/>
               <span className="text-yellow-500 uppercase text-xs font-bold">
-                  {selectedMode === 'rapid' && 'Standard Weights | Sac Chance 2%'}
-                  {selectedMode === 'blitz' && 'Instincts x1.8 | Theory x0.6 | Sac Chance 5%'}
-                  {selectedMode === 'classical' && 'Theory x1.5 | Defense x1.5 | Instincts x0.6 | Sac Chance 1%'}
-                  {selectedMode === 'bullet' && 'Tactics x2.5 | Others x0.1 | Sac Chance 10%'}
+                  {GAME_MODES.find(m => m.id === selectedMode)?.description}
               </span>
             </p>
 
@@ -155,7 +152,7 @@ export const ArenaPanel = memo(({
               onClick={handleStart}
               className="bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-8 w-full sm:w-auto rounded-lg sm:rounded-full shadow-[0_0_20px_rgba(34,197,94,0.4)] transform hover:scale-105 transition-all text-lg"
             >
-              Start {selectedMode.charAt(0).toUpperCase() + selectedMode.slice(1)} Match
+              Start {GAME_MODES.find(m => m.id === selectedMode)?.label} Match
             </button>
 
             {result && (
