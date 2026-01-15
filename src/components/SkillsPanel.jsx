@@ -43,8 +43,8 @@ export const SkillsHeader = ({ derivedStats }) => {
                 {availableAbilityPoints} <span className="text-gray-500 text-sm">/ {totalAbilityPoints}</span>
             </div>
             <div className="text-xs text-gray-500 mt-1 flex flex-col gap-0.5">
-                <span>Earn 1 AP per 300 Elo</span>
-                <span>Earn 1 AP per 10 Tournaments</span>
+                <span>Earn AP by clearing Tournaments</span>
+                <span>(Rapid, Blitz, Classical)</span>
             </div>
       </div>
     );
@@ -54,13 +54,14 @@ export const SkillsPanel = ({ skills, derivedStats, onPurchase }) => {
   const { availableAbilityPoints } = derivedStats;
 
   // Group skills by category for better layout
-  const categories = ['Opening', 'Midgame', 'Sacrifices', 'Tactics', 'Endgame'];
+  const categories = [...new Set(SKILLS.map(s => s.category))];
 
   return (
     <div className="p-4 pt-0">
       <div className="space-y-6">
           {categories.map(cat => {
               const catSkills = SKILLS.filter(s => s.category === cat);
+              if (catSkills.length === 0) return null;
               return (
                   <div key={cat}>
                       <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2 border-b border-gray-700 pb-1">{cat}</h3>
