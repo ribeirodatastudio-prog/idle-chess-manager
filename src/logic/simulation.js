@@ -279,32 +279,57 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
       maxSacrifices = 1;
   }
 
-  if (moveNumber > 5 && sacrificesCount < maxSacrifices && Math.random() < sacrificeChance) {
-      // Trigger Sacrifice
-      triggeredSacrifice = true;
+  if (moveNumber > 5 && sacrificesCount < maxSacrifices) {
+    let initiator = null;
 
-      // Success Check: Roll < (Level * 0.2)
-      // Max Level 500 * 0.2 = 100% chance.
-      // Use Weighted Stats (Bullet has 0.1x multiplier, significantly reducing success)
-      const successChance = Math.min(playerStats.sacrifices * 0.2, 100);
-      const roll = Math.random() * 100;
+    // Independent triggers for Player and Enemy
+    const playerRoll = Math.random();
+    const enemyRoll = Math.random();
 
-      if (roll < successChance) {
-          // Success
-          sacrificeSwing = 5.0;
-          logMessage = '!! BRILLIANT SACRIFICE !! The engine didn\'t see it coming!';
+    // Player Trigger
+    if (playerRoll < sacrificeChance) {
+        initiator = 'player';
+    }
+    // Enemy Trigger (if Player didn't trigger to avoid double events per turn)
+    else if (enemyRoll < sacrificeChance) {
+        initiator = 'enemy';
+    }
 
-          // Skill: Brilliant Move Bounty
-          if (skills.brilliant_bounty) {
-              triggerBrilliantBounty = true;
-          }
-      } else {
-          // Failure
-          sacrificeSwing = -2.0;
-          logMessage = 'Unsound Sacrifice... The opponent refutes it.';
-      }
+    if (initiator) {
+        triggeredSacrifice = true;
+        const isPlayer = initiator === 'player';
+        const actorStats = isPlayer ? playerStats : enemyStats;
 
-      delta += sacrificeSwing;
+        // Success Check: Roll < (Level * 0.2)
+        // Max Level 500 * 0.2 = 100% chance.
+        const successChance = Math.min(actorStats.sacrifices * 0.2, 100);
+        const roll = Math.random() * 100;
+        const isSuccess = roll < successChance;
+
+        if (isPlayer) {
+            if (isSuccess) {
+                sacrificeSwing = 5.0;
+                logMessage = '!! BRILLIANT SACRIFICE !! The engine didn\'t see it coming!';
+                if (skills.brilliant_bounty) triggerBrilliantBounty = true;
+            } else {
+                sacrificeSwing = -2.0;
+                logMessage = 'Unsound Sacrifice... The opponent refutes it.';
+            }
+        } else {
+            // Enemy Logic
+            if (isSuccess) {
+                // Enemy succeeds -> Hurts player (Delta decreases)
+                sacrificeSwing = -5.0;
+                logMessage = '!! OPPONENT SACRIFICE !! The AI unleashes chaos!';
+            } else {
+                // Enemy fails -> Helps player (Delta increases)
+                sacrificeSwing = 2.0;
+                logMessage = 'Opponent blunders a sacrifice!';
+            }
+        }
+
+        delta += sacrificeSwing;
+    }
   }
   
   // --- NEW SKILL LOGIC (Part 2: Delta Modifiers) ---
