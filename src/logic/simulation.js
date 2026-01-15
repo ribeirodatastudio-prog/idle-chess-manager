@@ -3,9 +3,9 @@ import { getOpponentIdentity } from './identity.js';
 import { TOURNAMENT_CONFIG } from './tournaments.js';
 
 export const PHASES = {
-  OPENING: { start: 1, end: 15, name: 'Opening' },
-  MIDGAME: { start: 16, end: 40, name: 'Midgame' },
-  ENDGAME: { start: 41, end: 50, name: 'Endgame' }
+  OPENING: { start: 1, end: 10, name: 'Opening' },
+  MIDGAME: { start: 11, end: 30, name: 'Midgame' },
+  ENDGAME: { start: 31, end: 50, name: 'Endgame' }
 };
 
 const getRandom = (min, max) => Math.random() * (max - min) + min;
@@ -196,8 +196,11 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
     playerBaseSum = playerStats.opening + (playerStats.tactics * 0.2);
     enemyBaseSum = enemyStats.opening + (enemyStats.tactics * 0.2);
 
-    // Dynamic Interpolation: Moves 1-10
-    const progress = Math.min(1.0, Math.max(0.0, (moveNumber - 1) / 9));
+    // Dynamic Interpolation
+    const pStart = PHASES.OPENING.start;
+    const pEnd = PHASES.OPENING.end;
+    const progress = Math.min(1.0, Math.max(0.0, (moveNumber - pStart) / (pEnd - pStart)));
+
     K_phase = lerp(0.25, 0.35, progress);
     MaxClamp = lerp(0.30, 0.45, progress);
     
@@ -208,8 +211,11 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
     playerBaseSum = playerStats.midgame + (playerStats.tactics * 0.8);
     enemyBaseSum = enemyStats.midgame + (enemyStats.tactics * 0.8);
 
-    // Dynamic Interpolation: Moves 11-30
-    const progress = Math.min(1.0, Math.max(0.0, (moveNumber - 11) / 19));
+    // Dynamic Interpolation
+    const pStart = PHASES.MIDGAME.start;
+    const pEnd = PHASES.MIDGAME.end;
+    const progress = Math.min(1.0, Math.max(0.0, (moveNumber - pStart) / (pEnd - pStart)));
+
     K_phase = lerp(0.35, 0.60, progress);
     MaxClamp = lerp(0.45, 0.75, progress);
 
@@ -220,8 +226,11 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
     playerBaseSum = playerStats.endgame + (playerStats.tactics * 1.5);
     enemyBaseSum = enemyStats.endgame + (enemyStats.tactics * 1.5);
 
-    // Dynamic Interpolation: Moves 31-50
-    const progress = Math.min(1.0, Math.max(0.0, (moveNumber - 31) / 19));
+    // Dynamic Interpolation
+    const pStart = PHASES.ENDGAME.start;
+    const pEnd = PHASES.ENDGAME.end;
+    const progress = Math.min(1.0, Math.max(0.0, (moveNumber - pStart) / (pEnd - pStart)));
+
     K_phase = lerp(0.60, 0.90, progress);
     MaxClamp = lerp(0.75, 1.0, progress);
   }
@@ -431,6 +440,9 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
     logMessage,
     sacrificesCount: triggeredSacrifice ? sacrificesCount + 1 : sacrificesCount,
     hasSacrificed: triggeredSacrifice,
-    triggerBrilliantBounty
+    triggerBrilliantBounty,
+    effectivePlayerStats: playerStats,
+    effectiveEnemyStats: enemyStats,
+    K_phase
   };
 };
