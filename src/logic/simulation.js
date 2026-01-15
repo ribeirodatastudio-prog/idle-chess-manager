@@ -25,6 +25,16 @@ export const applyModeWeights = (stats, mode) => {
     } else if (mode === 'blitz') {
         theoryWeight = 0.6;
         instinctWeight = 1.8;
+    } else if (mode === 'bullet') {
+        // Bullet: Chaos. Tactics x2.5, Sacrifices x0.1 (Power), Others x0.1
+        s.tactics *= 2.5;
+        s.sacrifices *= 0.1;
+        s.opening *= 0.1;
+        s.midgame *= 0.1;
+        s.endgame *= 0.1;
+        s.defense *= 0.1;
+
+        return s; // Early return as logic differs from standard weights
     }
 
     // Apply weights
@@ -149,7 +159,7 @@ export const generateOpponentStats = (rankData) => {
   };
 };
 
-export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, currentEval, skills = {}, phase1Won = false, move11Eval = 0, mode = 'rapid', hasSacrificed = false) => {
+export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, currentEval, skills = {}, phase1Won = false, move11Eval = 0, mode = 'rapid', sacrificesCount = 0) => {
   // Apply Mode Weights first
   const playerStats = applyModeWeights(rawPlayerStats, mode);
   const enemyStats = applyModeWeights(rawEnemyStats, mode);
@@ -313,13 +323,29 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
   let sacrificeSwing = 0;
   let triggeredSacrifice = false;
 
-  if (moveNumber > 5 && !hasSacrificed && Math.random() < 0.02) {
+  // Determine Sacrifice Limits and Chance based on Mode
+  let maxSacrifices = 1;
+  let sacrificeChance = 0.02; // Default (Rapid)
+
+  if (mode === 'classical') {
+      sacrificeChance = 0.01;
+      maxSacrifices = 1;
+  } else if (mode === 'blitz') {
+      sacrificeChance = 0.05;
+      maxSacrifices = 2;
+  } else if (mode === 'bullet') {
+      sacrificeChance = 0.10;
+      maxSacrifices = 3;
+  }
+
+  if (moveNumber > 5 && sacrificesCount < maxSacrifices && Math.random() < sacrificeChance) {
       // Trigger Sacrifice
       triggeredSacrifice = true;
 
       // Success Check: Roll < (Level * 0.2)
       // Max Level 500 * 0.2 = 100% chance.
-      const successChance = rawPlayerStats.sacrifices * 0.2;
+      // Use Weighted Stats (Bullet has 0.1x multiplier, significantly reducing success)
+      const successChance = Math.min(playerStats.sacrifices * 0.2, 100);
       const roll = Math.random() * 100;
 
       if (roll < successChance) {
@@ -415,6 +441,7 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
     phase,
     sacrificeSwing,
     logMessage,
+    sacrificesCount: triggeredSacrifice ? sacrificesCount + 1 : sacrificesCount,
     hasSacrificed: triggeredSacrifice
   };
 };
