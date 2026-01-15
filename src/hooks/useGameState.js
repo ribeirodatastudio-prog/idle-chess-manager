@@ -4,6 +4,8 @@ import { getSkillById } from '../logic/skills';
 import { TOURNAMENT_CONFIG, TIERS_PER_TOURNAMENT, MATCHES_PER_TIER } from '../logic/tournaments';
 import { GAME_MODES } from '../logic/gameModes';
 import { useOfflineProgress } from './useOfflineProgress';
+import { PUZZLE_THEMES } from '../data/puzzles';
+import { calculatePuzzleDifficulty, resolvePuzzle } from '../logic/puzzles';
 
 const STORAGE_KEY = 'chess-career-save-v2';
 
@@ -34,6 +36,11 @@ const INITIAL_TOURNAMENT = {
     bullet: { tournamentIndex: 0, tierIndex: 0, matchIndex: 0 },
     chess960: { tournamentIndex: 0, tierIndex: 0, matchIndex: 0 }
   }
+};
+
+const INITIAL_PUZZLE_STATS = {
+    elo: 10,
+    multiplier: 1.0
 };
 
 // Helper to read save safely
@@ -78,6 +85,11 @@ export const useGameState = () => {
   // Calculate Initial Rate for Offline Progress
   const initialProductionRate = useMemo(() => {
       const saved = loadSave();
+      let multiplier = 1.0;
+      if (saved && saved.puzzleStats) {
+           multiplier = saved.puzzleStats.multiplier || 1.0;
+      }
+
       if (saved && saved.tournament) {
           // Migration logic to get ranks safe
           let ranks = saved.tournament.ranks;
@@ -93,7 +105,7 @@ export const useGameState = () => {
               if (ranks[m.id]) cumulativeIdx += getIdx(ranks[m.id]);
           });
 
-          return calculatePassiveIncomePerSecond(cumulativeIdx);
+          return calculatePassiveIncomePerSecond(cumulativeIdx) * multiplier;
       }
       return 0;
   }, []);
@@ -153,13 +165,24 @@ export const useGameState = () => {
     return { ...INITIAL_TOURNAMENT };
   });
 
+  // 5. Puzzle State
+  const [puzzleStats, setPuzzleStats] = useState(() => {
+      const saved = loadSave();
+      return (saved && saved.puzzleStats) ? { ...INITIAL_PUZZLE_STATS, ...saved.puzzleStats } : { ...INITIAL_PUZZLE_STATS };
+  });
+
+  const [activePuzzle, setActivePuzzle] = useState(() => {
+      const saved = loadSave();
+      return (saved && saved.activePuzzle) ? saved.activePuzzle : null;
+  });
+
   // Ref to hold current state for saving
-  const stateRef = useRef({ resources, stats, skills, tournament });
+  const stateRef = useRef({ resources, stats, skills, tournament, puzzleStats, activePuzzle });
 
   // Keep Ref updated
   useEffect(() => {
-    stateRef.current = { resources, stats, skills, tournament };
-  }, [resources, stats, skills, tournament]);
+    stateRef.current = { resources, stats, skills, tournament, puzzleStats, activePuzzle };
+  }, [resources, stats, skills, tournament, puzzleStats, activePuzzle]);
 
   // Save Function
   const saveGame = useCallback(() => {
@@ -200,7 +223,7 @@ export const useGameState = () => {
   useEffect(() => {
       saveGame();
       // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stats, skills, totalWins, tournament.active]);
+  }, [stats, skills, totalWins, tournament.active, puzzleStats, activePuzzle]);
 
   // Derived Stats
   const playerElo = useMemo(() => {
@@ -236,12 +259,19 @@ export const useGameState = () => {
 
       setResources(prev => {
         const currentRanks = stateRef.current.tournament.ranks;
+        const currentPuzzleStats = stateRef.current.puzzleStats; // Access via Ref for fresh value
 
         // Calculate Cumulative Tournament Index
         const getIdx = (r) => (typeof r === 'object' ? r.tournamentIndex : 0);
         const cumulativeIdx = GAME_MODES.reduce((sum, m) => sum + getIdx(currentRanks[m.id]), 0);
 
-        const income = calculatePassiveIncomePerSecond(cumulativeIdx);
+        let income = calculatePassiveIncomePerSecond(cumulativeIdx);
+
+        // Apply Puzzle Multiplier
+        if (currentPuzzleStats && currentPuzzleStats.multiplier) {
+            income *= currentPuzzleStats.multiplier;
+        }
+
         return {
           ...prev,
           studyTime: prev.studyTime + income
@@ -313,7 +343,14 @@ export const useGameState = () => {
                   // Calculate Income based on Cumulative Tournament Index
                   const getIdx = (r) => (typeof r === 'object' ? r.tournamentIndex : 0);
                   const cumulativeIdx = GAME_MODES.reduce((sum, m) => sum + getIdx(prev.ranks[m.id]), 0);
-                  const currentIncome = calculatePassiveIncomePerSecond(cumulativeIdx);
+                  let currentIncome = calculatePassiveIncomePerSecond(cumulativeIdx);
+
+                  // Apply Puzzle Multiplier to Prize too? Prompt said "Study Time Production Loop".
+                  // Usually prizes are based on income rate, so it makes sense.
+                  const pStats = stateRef.current.puzzleStats;
+                  if (pStats && pStats.multiplier) {
+                      currentIncome *= pStats.multiplier;
+                  }
 
                   // Determine prize
                   let prizeSeconds = 600;
@@ -383,7 +420,12 @@ export const useGameState = () => {
       const currentRanks = stateRef.current.tournament.ranks;
       const getIdx = (r) => (typeof r === 'object' ? r.tournamentIndex : 0);
       const cumulativeIdx = GAME_MODES.reduce((sum, m) => sum + getIdx(currentRanks[m.id]), 0);
-      const income = calculatePassiveIncomePerSecond(cumulativeIdx);
+      let income = calculatePassiveIncomePerSecond(cumulativeIdx);
+
+      const pStats = stateRef.current.puzzleStats;
+      if (pStats && pStats.multiplier) {
+          income *= pStats.multiplier;
+      }
 
       const bonus = income * 600; // 10 minutes
       setResources(prev => ({
@@ -391,6 +433,102 @@ export const useGameState = () => {
           studyTime: prev.studyTime + bonus
       }));
   }, []);
+
+  // --- PUZZLE LOGIC ---
+
+  const generatePuzzle = useCallback(() => {
+    setPuzzleStats(currentStats => {
+        const theme = PUZZLE_THEMES[Math.floor(Math.random() * PUZZLE_THEMES.length)];
+        const target = calculatePuzzleDifficulty(currentStats.elo);
+
+        // Name Suffix Logic
+        let suffix = ' I';
+        if (currentStats.elo >= 500) suffix = ' III';
+        else if (currentStats.elo >= 100) suffix = ' II';
+
+        const newPuzzle = {
+            themeId: theme.id,
+            name: theme.name + suffix,
+            flavor: theme.flavor,
+            skills: theme.skills,
+            difficulty: target
+        };
+
+        setActivePuzzle(newPuzzle);
+        return currentStats; // No change to stats here
+    });
+  }, []);
+
+  // Ensure puzzle exists on load
+  useEffect(() => {
+      if (!activePuzzle) {
+          generatePuzzle();
+      }
+  }, [activePuzzle, generatePuzzle]);
+
+  const solvePuzzle = useCallback(() => {
+    if (!activePuzzle) return;
+
+    const result = resolvePuzzle(activePuzzle, stats, activePuzzle.difficulty);
+
+    if (result.success) {
+        setPuzzleStats(prev => ({
+            elo: Math.floor(prev.elo * 1.15),
+            multiplier: prev.multiplier * 1.01
+        }));
+    } else {
+        setPuzzleStats(prev => ({
+            ...prev,
+            elo: Math.floor(prev.elo * 0.90)
+        }));
+    }
+
+    // Clear and regenerate (immediate)
+    setActivePuzzle(null);
+    // Effect will trigger regeneration, or we can do it here.
+    // Doing it here avoids a render cycle where puzzle is null.
+
+    // Generate new one immediately
+    const theme = PUZZLE_THEMES[Math.floor(Math.random() * PUZZLE_THEMES.length)];
+    // Need fresh Elo? The state update above is async.
+    // We should probably rely on useEffect or calculate next Elo here.
+    // Let's use functional update or re-run generate logic inside functional update.
+
+    // Actually, simply setting activePuzzle to null and letting the useEffect handle it is safer
+    // but might cause a flicker.
+    // Better: Calculate next stats and generate immediately.
+
+    setPuzzleStats(prev => {
+        let nextElo = prev.elo;
+        let nextMult = prev.multiplier;
+
+        if (result.success) {
+            nextElo = Math.floor(nextElo * 1.15);
+            nextMult = nextMult * 1.01;
+        } else {
+            nextElo = Math.floor(nextElo * 0.90);
+        }
+
+        const nextTarget = calculatePuzzleDifficulty(nextElo);
+        let suffix = ' I';
+        if (nextElo >= 500) suffix = ' III';
+        else if (nextElo >= 100) suffix = ' II';
+
+        setActivePuzzle({
+            themeId: theme.id,
+            name: theme.name + suffix,
+            flavor: theme.flavor,
+            skills: theme.skills,
+            difficulty: nextTarget
+        });
+
+        return {
+            elo: nextElo,
+            multiplier: nextMult
+        };
+    });
+
+  }, [activePuzzle, stats]);
 
   // Debug Actions
   const addResource = useCallback((amount) => {
@@ -403,6 +541,8 @@ export const useGameState = () => {
       setStats(INITIAL_STATS);
       setSkills(INITIAL_SKILLS);
       setTournament(INITIAL_TOURNAMENT);
+      setPuzzleStats(INITIAL_PUZZLE_STATS);
+      setActivePuzzle(null);
       clearReport();
   }, [clearReport]);
 
@@ -414,8 +554,9 @@ export const useGameState = () => {
       addResource,
       resetGame,
       claimOfflineReward,
-      triggerSacrificeBonus
-  }), [upgradeStat, purchaseSkill, startTournament, endTournament, addResource, resetGame, claimOfflineReward, triggerSacrificeBonus]);
+      triggerSacrificeBonus,
+      solvePuzzle
+  }), [upgradeStat, purchaseSkill, startTournament, endTournament, addResource, resetGame, claimOfflineReward, triggerSacrificeBonus, solvePuzzle]);
 
   const derivedStats = {
       playerElo,
@@ -430,6 +571,8 @@ export const useGameState = () => {
       stats,
       skills,
       tournament,
+      puzzleStats,
+      activePuzzle,
       offlineReport,
       isOfflineLoading,
       lastSaveTime: Date.now()

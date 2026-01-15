@@ -6,6 +6,7 @@ import { ArenaPanel } from './components/ArenaPanel';
 import { LogsPanel } from './components/LogsPanel';
 import { SkillsPanel, SkillsHeader } from './components/SkillsPanel';
 import { OfflineModal } from './components/OfflineModal';
+import PuzzleRoom from './components/PuzzleRoom';
 
 function App() {
   const { state, derivedStats, actions } = useGameState();
@@ -190,11 +191,14 @@ function App() {
            {/* Scrollable Content Area */}
            <div className="flex-1 overflow-y-auto pb-20">
                {activeTab === 'stats' ? (
-                   <StatsPanel
-                        stats={state.stats} 
-                        resources={state.resources} 
-                        onUpgrade={actions.upgradeStat} 
-                   />
+                   <>
+                        <StatsPanel
+                            stats={state.stats}
+                            resources={state.resources}
+                            onUpgrade={actions.upgradeStat}
+                        />
+                        <PuzzleRoom state={state} actions={actions} />
+                   </>
                ) : (
                     <SkillsPanel
                         skills={state.skills}
