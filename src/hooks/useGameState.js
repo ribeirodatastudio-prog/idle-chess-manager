@@ -25,11 +25,12 @@ const INITIAL_SKILLS = {}; // id -> boolean
 const INITIAL_TOURNAMENT = {
   active: false,
   opponentStats: null,
-  activeMode: null, // 'rapid', 'blitz', 'classical'
+  activeMode: null, // 'rapid', 'blitz', 'classical', 'bullet'
   ranks: {
     rapid: { tournamentIndex: 0, tierIndex: 0, matchIndex: 0 },
     blitz: { tournamentIndex: 0, tierIndex: 0, matchIndex: 0 },
-    classical: { tournamentIndex: 0, tierIndex: 0, matchIndex: 0 }
+    classical: { tournamentIndex: 0, tierIndex: 0, matchIndex: 0 },
+    bullet: { tournamentIndex: 0, tierIndex: 0, matchIndex: 0 }
   }
 };
 
@@ -47,7 +48,7 @@ const loadSave = () => {
 // Helper to get total wins from ranks
 const getTotalWins = (ranks) => {
     let total = 0;
-    ['rapid', 'blitz', 'classical'].forEach(mode => {
+    ['rapid', 'blitz', 'classical', 'bullet'].forEach(mode => {
         const r = ranks[mode];
         if (typeof r === 'number') {
              // Fallback/Legacy
@@ -87,7 +88,8 @@ export const useGameState = () => {
           const getIdx = (r) => (typeof r === 'object' ? r.tournamentIndex : 0);
           const cumulativeIdx = (ranks.rapid ? getIdx(ranks.rapid) : 0) +
                                 (ranks.blitz ? getIdx(ranks.blitz) : 0) +
-                                (ranks.classical ? getIdx(ranks.classical) : 0);
+                                (ranks.classical ? getIdx(ranks.classical) : 0) +
+                                (ranks.bullet ? getIdx(ranks.bullet) : 0);
 
           return calculatePassiveIncomePerSecond(cumulativeIdx);
       }
@@ -125,7 +127,7 @@ export const useGameState = () => {
         const migratedRanks = { ...INITIAL_TOURNAMENT.ranks };
         let needsMigration = false;
 
-        ['rapid', 'blitz', 'classical'].forEach(mode => {
+        ['rapid', 'blitz', 'classical', 'bullet'].forEach(mode => {
             const r = savedRanks[mode];
             if (typeof r === 'number') {
                 needsMigration = true;
@@ -192,9 +194,9 @@ export const useGameState = () => {
 
   // Calculate Cumulative Tournament Index across all modes for economy
   const cumulativeTournamentIndex = useMemo(() => {
-      const { rapid, blitz, classical } = tournament.ranks;
+      const { rapid, blitz, classical, bullet } = tournament.ranks;
       const getIdx = (r) => (typeof r === 'object' ? r.tournamentIndex : 0);
-      return getIdx(rapid) + getIdx(blitz) + getIdx(classical);
+      return getIdx(rapid) + getIdx(blitz) + getIdx(classical) + getIdx(bullet);
   }, [tournament.ranks]);
 
   // Trigger-Save on Important Changes
@@ -247,7 +249,7 @@ export const useGameState = () => {
 
         // Calculate Cumulative Tournament Index
         const getIdx = (r) => (typeof r === 'object' ? r.tournamentIndex : 0);
-        const cumulativeIdx = getIdx(currentRanks.rapid) + getIdx(currentRanks.blitz) + getIdx(currentRanks.classical);
+        const cumulativeIdx = getIdx(currentRanks.rapid) + getIdx(currentRanks.blitz) + getIdx(currentRanks.classical) + getIdx(currentRanks.bullet);
 
         const income = calculatePassiveIncomePerSecond(cumulativeIdx);
         return {
@@ -320,7 +322,7 @@ export const useGameState = () => {
               if (isTierClear) {
                   // Calculate Income based on Cumulative Tournament Index
                   const getIdx = (r) => (typeof r === 'object' ? r.tournamentIndex : 0);
-                  const cumulativeIdx = getIdx(prev.ranks.rapid) + getIdx(prev.ranks.blitz) + getIdx(prev.ranks.classical);
+                  const cumulativeIdx = getIdx(prev.ranks.rapid) + getIdx(prev.ranks.blitz) + getIdx(prev.ranks.classical) + getIdx(prev.ranks.bullet);
                   const currentIncome = calculatePassiveIncomePerSecond(cumulativeIdx);
 
                   // Determine prize

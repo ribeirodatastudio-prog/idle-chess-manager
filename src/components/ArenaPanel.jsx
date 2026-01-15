@@ -1,7 +1,7 @@
 import React, { useState, memo } from 'react';
 import { TOURNAMENT_CONFIG } from '../logic/tournaments';
 
-const MODES = ['rapid', 'blitz', 'classical'];
+const MODES = ['rapid', 'blitz', 'classical', 'bullet'];
 const MATCH_INDICATORS = [0, 1, 2];
 const CHESSBOARD_SQUARES = Array.from({ length: 64 });
 
@@ -144,9 +144,10 @@ export const ArenaPanel = memo(({
             <p className="text-gray-400 mb-4 text-sm sm:text-base max-w-xs mx-auto">
               Prepare your stats. <br/>
               <span className="text-yellow-500 uppercase text-xs font-bold">
-                  {selectedMode === 'rapid' && 'Standard Weights'}
-                  {selectedMode === 'blitz' && 'Instincts x1.8 | Theory x0.6'}
-                  {selectedMode === 'classical' && 'Theory x1.5 | Defense x1.5 | Instincts x0.6'}
+                  {selectedMode === 'rapid' && 'Standard Weights | Sac Chance 2%'}
+                  {selectedMode === 'blitz' && 'Instincts x1.8 | Theory x0.6 | Sac Chance 5%'}
+                  {selectedMode === 'classical' && 'Theory x1.5 | Defense x1.5 | Instincts x0.6 | Sac Chance 1%'}
+                  {selectedMode === 'bullet' && 'Tactics x2.5 | Others x0.1 | Sac Chance 10%'}
               </span>
             </p>
 
