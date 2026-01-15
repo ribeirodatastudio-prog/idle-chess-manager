@@ -4,7 +4,7 @@ import { getSkillById } from '../logic/skills';
 import { TOURNAMENT_CONFIG, TIERS_PER_TOURNAMENT, MATCHES_PER_TIER } from '../logic/tournaments';
 import { useOfflineProgress } from './useOfflineProgress';
 
-const STORAGE_KEY = 'chess-career-save';
+const STORAGE_KEY = 'chess-career-save-v2';
 
 const INITIAL_RESOURCES = {
   studyTime: 0
@@ -43,12 +43,6 @@ const loadSave = () => {
         console.error("Failed to load save", e);
     }
     return null;
-};
-
-const calculateTotalPoints = (elo, wins) => {
-    const fromElo = Math.floor((elo - 100) / 300);
-    const fromWins = Math.floor(wins / 10);
-    return fromElo + fromWins;
 };
 
 // Helper to get total wins from ranks
@@ -217,9 +211,20 @@ export const useGameState = () => {
     return 100 + totalLevels;
   }, [stats]);
 
+  // NEW SKILL POINT LOGIC
   const totalAbilityPoints = useMemo(() => {
-    return calculateTotalPoints(playerElo, totalWins);
-  }, [playerElo, totalWins]);
+    const { rapid, blitz, classical } = tournament.ranks;
+    const getIdx = (r) => (typeof r === 'object' ? r.tournamentIndex : 0);
+
+    // Initial 3 + 1 per Tournament Index per Mode
+    // Note: tournamentIndex 0 -> 0 points? Or is it based on cleared?
+    // User said: "A Skill Point is earned ONLY when a Major Tournament is fully cleared".
+    // This implies that while in Tournament 0, you have 0 extra points.
+    // When you reach Tournament 1, you have 1 extra point.
+    // So tournamentIndex is exactly the number of cleared tournaments.
+
+    return 3 + getIdx(rapid) + getIdx(blitz) + getIdx(classical);
+  }, [tournament.ranks]);
 
   const usedAbilityPoints = useMemo(() => {
     return Object.keys(skills).reduce((total, skillId) => {
@@ -265,7 +270,9 @@ export const useGameState = () => {
 
     setResources(prevRes => {
         const currentLevel = stats[statName];
-        const hasPrepFiles = skills['prep_files'];
+        // REMOVED prep_files logic
+        const hasPrepFiles = false;
+
         // Pass statName to calculation for custom logic (Sacrifice Wall)
         const cost = calculateUpgradeCost(currentLevel, hasPrepFiles, statName);
 
@@ -282,7 +289,7 @@ export const useGameState = () => {
         }
         return prevRes;
     });
-  }, [stats, skills]);
+  }, [stats]);
 
   const purchaseSkill = useCallback((skillId) => {
       const skill = getSkillById(skillId);
@@ -320,9 +327,7 @@ export const useGameState = () => {
 
                   // Determine prize
                   let prizeSeconds = 600;
-                  if (skills['book_worm'] && finalMoveCount < 20) {
-                      prizeSeconds *= 1.5;
-                  }
+                  // REMOVED book_worm logic
 
                   // Award Prize
                   setResources(res => ({
@@ -371,7 +376,7 @@ export const useGameState = () => {
               };
           }
       });
-  }, [skills]);
+  }, []);
 
   const claimOfflineReward = useCallback(() => {
       if (offlineReport) {
@@ -382,6 +387,20 @@ export const useGameState = () => {
           clearReport();
       }
   }, [offlineReport, clearReport]);
+
+  // NEW: Trigger Sacrifice Bonus (Brilliant Bounty)
+  const triggerSacrificeBonus = useCallback(() => {
+      const currentRanks = stateRef.current.tournament.ranks;
+      const getIdx = (r) => (typeof r === 'object' ? r.tournamentIndex : 0);
+      const cumulativeIdx = getIdx(currentRanks.rapid) + getIdx(currentRanks.blitz) + getIdx(currentRanks.classical);
+      const income = calculatePassiveIncomePerSecond(cumulativeIdx);
+
+      const bonus = income * 600; // 10 minutes
+      setResources(prev => ({
+          ...prev,
+          studyTime: prev.studyTime + bonus
+      }));
+  }, []);
 
   // Debug Actions
   const addResource = useCallback((amount) => {
@@ -404,8 +423,9 @@ export const useGameState = () => {
       endTournament,
       addResource,
       resetGame,
-      claimOfflineReward
-  }), [upgradeStat, purchaseSkill, startTournament, endTournament, addResource, resetGame, claimOfflineReward]);
+      claimOfflineReward,
+      triggerSacrificeBonus
+  }), [upgradeStat, purchaseSkill, startTournament, endTournament, addResource, resetGame, claimOfflineReward, triggerSacrificeBonus]);
 
   const derivedStats = {
       playerElo,

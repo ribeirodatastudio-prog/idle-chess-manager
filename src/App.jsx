@@ -113,6 +113,11 @@ function App() {
             nextMove11Eval = moveResult.newEval;
         }
 
+        // Brilliant Bounty Trigger
+        if (moveResult.triggerBrilliantBounty) {
+            actions.triggerSacrificeBonus();
+        }
+
         // Check if game ended
         if (moveResult.result) {
           clearInterval(simulationInterval.current);
