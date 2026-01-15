@@ -1,55 +1,62 @@
-# QA Audit Report: Combat Logic Stress Test
+# QA Report: Combat Sensitivity Audit
 
-**Role:** Senior QA Automation Engineer & Math Auditor
-**Date:** October 26, 2023
-**Status:** PASSED (All Critical Checks)
+## 1. Executive Summary
+**Issue:** User reported that game evaluations always hit the maximum cap ("Stomp") even in seemingly early game states.
+**Audit Result:** The combat formula is **working correctly**. The observed "saturation" is due to extreme stat disparities in the provided user case (User stats ~1 vs Opponent stats ~20 in Midgame), which mathematically results in a >99% loss probability per move.
+**Sensitivity Adjustment:** The Sensitivity constant `S` has been adjusted to `0.15` to ensure that a **50% Skill Difference** reliably triggers this maximum saturation, while smaller differences (e.g., 20%) allow for dynamic gameplay.
 
-## 1. Simulation Matrix & Logs
+## 2. User Case Analysis
+**Scenario:**
+- **Player Stats:** Opening: 6, All Others: 1.
+- **Opponent Stats (50 Elo):** Opening: ~18, Midgame: ~10, Endgame: ~12, Tactics: ~13.
 
-### [RAPID] - [Tier A: 100 Stats]
-> **Turn 1:** Eval 0.19 | Delta 0.19 | Phase: Opening
-> **Turn 50:** Result draw | Eval 0.45
-> **Conclusion:** Stable low-level gameplay. Math holds up at small numbers.
+### Why the "Stomp" Happens
+The combat engine calculates "Efficiency" based on the current phase.
+1.  **Opening (Move 1-10):**
+    *   **Player Eff:** 6.2 (6 + 1*0.2)
+    *   **Enemy Eff:** 20.6 (18 + 13*0.2)
+    *   **Ratio:** `ln(6.2 / 20.6) = -1.20`.
+    *   **Result:** The enemy is **3.3x stronger** than the player. This is >300% difference, far exceeding the 50% saturation point.
+    *   **Outcome:** Immediate Max Cap loss (-0.25 to -0.35 per turn).
 
-### [BULLET] - [Tier A: 100 Stats]
-> **Turn 1:** Eval 0.22 | Delta 0.22
-> **Events:**
-> - Turn 9: "Unsound Sacrifice... The opponent refutes it." (Player Trigger -> Fail)
-> - Turn 13: "Unsound Sacrifice... The opponent refutes it." (Player Trigger -> Fail)
-> - Turn 16: "Opponent blunders a sacrifice!" (AI Trigger -> Fail)
-> **Conclusion:** PASS. **AI Agency verified.** High Event frequency verified (3 events in <20 moves).
+2.  **Midgame (Move 11-30):**
+    *   **Player Eff:** 1.8 (1 + 1*0.8)
+    *   **Enemy Eff:** 20.4 (10 + 13*0.8)
+    *   **Ratio:** `ln(1.8 / 20.4) = -2.42`.
+    *   **Result:** The enemy is **11x stronger**.
+    *   **Outcome:** Immediate Max Cap loss.
 
-### [CHESS 960] - [Tier A: 100 Stats]
-> **Turn 1:** Eval 1.64 | Delta 1.64 (Opening Bonus Active)
-> **Turn 9:** Delta 0.68 (Opening Bonus Active)
-> **Turn 11:** Delta 1.05 (Midgame - Bonus Gone)
-> **Conclusion:** PASS. Phase shift logic confirmed (Delta increased when phase shifted to Midgame, reflecting the removal of the 1.75x Opening multiplier which was balanced by 1.75x enemy multiplier, transitioning to standard weights).
-> *Note: In 960, Opening mult is 1.75x. If both sides have it, the base sums are higher. Transition to Midgame (1.25x) changes the dynamic.*
+### Detailed Math Trace (From Diagnostic Log)
+*S = 0.15 (High Sensitivity)*
 
-### [RAPID] - [Tier C: 1M Stats]
-> **Turn 1:** Eval 4659.78 | Delta 4659.78
-> **Conclusion:** PASS. Valid math (No Infinity/NaN).
-> *Observation:* Game ends instantly (Turn 1) due to high power delta (Eval > 8.0). This is expected behavior when simulating 1,000,000 (Player) vs 950,000 (Enemy) stats; the 50,000 point difference creates an insurmountable gap immediately.
+| Move | Phase | Player Eff | Enemy Eff | Ratio (r) | Advantage (tanh) | Raw Mag | Final Delta | Eval |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **1** | Opening | 6.20 | 20.60 | -1.20 | 1.00 (Max) | 1.00 | **-0.25** | -0.20 |
+| **5** | Opening | 6.20 | 20.60 | -1.20 | 1.00 (Max) | 1.00 | **-0.29** | -1.31 |
+| **10** | Opening | 6.20 | 20.60 | -1.20 | 1.00 (Max) | 1.00 | **-0.35** | -2.95 |
+| **11** | Midgame | 1.80 | 20.40 | -2.43 | 1.00 (Max) | 1.00 | **-0.35** | -3.30 |
+| **15** | Midgame | 1.80 | 20.40 | -2.43 | 1.00 (Max) | 1.00 | **-0.40** | -4.83 |
+| **23** | Midgame | 1.80 | 20.40 | -2.43 | 1.00 (Max) | 1.00 | **-0.51** | -8.53 |
 
-## 2. Specific Logic Checks (Pass/Fail)
+**Conclusion:** The math accurately reflects that a player with Stat 1 is being crushed by an opponent with Stat 10+.
 
-| Check | Result | Notes |
-| :--- | :--- | :--- |
-| **1 Million Stat Check** | **PASS** | 1M Attack vs 500k Def resulted in valid Delta (51976.02). No overflow/NaN. |
-| **AI Agency** | **PASS** | AI Opponent successfully triggered sacrifice event (Turn 16 in Bullet simulation). Logic Refactored to enable this. |
-| **Bullet Chaos** | **PASS** | High frequency of events observed in games that lasted long enough (>5 moves). |
-| **Gauntlet Scaling** | **PASS** | Verified 1.0x, 1.02x, 1.05x multipliers consistently across 5 different Tiers. |
+## 3. Control Group: Balanced Play
+To prove the formula allows for small increments when matched fairly:
 
-## 3. Deep Logic Audit
-*   **Time Trouble / Iron Curtain:** Verified in code (`src/logic/simulation.js`). Logic correctly applies modifiers at Turn 35 and 50 respectively.
-*   **Sacrifice Mechanics:** Refactored to allow independent **Player** and **Enemy** triggers.
-    *   *Player Trigger:* Uses Player Sacrifice Stat. Success = +5.0 Eval (Player Win), Fail = -2.0 Eval.
-    *   *Enemy Trigger:* Uses Enemy Sacrifice Stat. Success = -5.0 Eval (Enemy Win), Fail = +2.0 Eval.
-*   **Stat Overflow:** Verified via 1M Stat Check. JavaScript `Number` type handles 1M+ safely (Max Safe Integer is 9 quadrillion).
+**Scenario A: Perfect Balance (10 vs 10)**
+*   **Ratio:** 0.00
+*   **Advantage:** 0.00
+*   **Final Delta:** **0.075** (Minimum Floor).
+*   *Result: Small, tense game.*
 
-## 4. Action Items Completed
-*   [x] **Fix AI Agency:** Implemented explicit "Enemy Sacrifice" logic in `calculateMove`.
-*   [x] **Stress Test Script:** Created `tests/stress_test_audit.js` for reproducible validation.
-*   [x] **Verification:** Confirmed all math holds up under stress (1M+ stats).
+**Scenario B: Moderate Advantage (12 vs 10, +20%)**
+*   **Ratio:** `ln(1.2) = 0.18`.
+*   **Advantage:** `tanh(0.18 / 0.15) = 0.83`.
+*   **Final Delta:** **0.19**.
+*   *Result: Decisive but not instant stomp.*
 
-**Final Verdict:** The Combat Logic is robust, mathematically sound, and ready for production.
+## 4. Recommendations
+1.  **Stat Balance:** The user needs to upgrade Midgame/Tactics stats to compete, as "1" is effectively zero power against even the weakest bots (Rank 0, Tier 0).
+2.  **Formula Status:** The formula with `S=0.15` is performing exactly as requested:
+    *   Small diff (0-20%) -> Small/Medium Delta (0.07 - 0.19).
+    *   Large diff (>50%) -> Max Delta (Saturation).
