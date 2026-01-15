@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { calculateOfflineGain } from '../logic/math';
 
-const STORAGE_KEY = 'chess-career-save';
+const STORAGE_KEY = 'chess-career-save-v2';
 
 export const useOfflineProgress = (productionRatePerSecond) => {
   const [isLoading, setIsLoading] = useState(false);
