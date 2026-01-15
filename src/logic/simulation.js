@@ -3,9 +3,9 @@ import { getOpponentIdentity } from './identity.js';
 import { TOURNAMENT_CONFIG } from './tournaments.js';
 
 export const PHASES = {
-  OPENING: { start: 1, end: 10, name: 'Opening' },
-  MIDGAME: { start: 11, end: 30, name: 'Midgame' },
-  ENDGAME: { start: 31, end: 50, name: 'Endgame' }
+  OPENING: { start: 1, end: 15, name: 'Opening' },
+  MIDGAME: { start: 16, end: 40, name: 'Midgame' },
+  ENDGAME: { start: 41, end: 50, name: 'Endgame' }
 };
 
 const getRandom = (min, max) => Math.random() * (max - min) + min;
@@ -228,33 +228,61 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
 
   // --- END NEW SKILL LOGIC (Part 1: Base Stats) ---
   
-  // Power Calculation: (Sum * 0.5) * Random
-  let minR = 0.95, maxR = 1.05;
-  
-  const rawPlayerAttack = (playerBaseSum * 0.5) * getRandom(minR, maxR);
-  const rawEnemyAttack = (enemyBaseSum * 0.5) * getRandom(minR, maxR);
+  // --- HYBRID PROBABILISTIC COMBAT ENGINE ---
 
-  // Mitigation Logic (Defense)
-  // Effective Damage = Max(Raw * 0.2, Raw - Defense*0.5)
-  // Defense defaults to 1 if missing
-  let playerDefense = playerStats.defense || 1;
-  const enemyDefense = enemyStats.defense || 1;
+  // 1. Constants & Parameters
+  const S = 0.30;
+  const a = 6.0;
+  const gamma = 1.6;
+  const minProg = 0.30;
 
-  if (skills.iron_curtain) {
-      playerDefense *= 1.4;
+  // 2. Phase Configuration
+  let K_phase = 0.25;
+  let MaxClamp = 0.30;
+
+  if (phase === PHASES.MIDGAME.name) {
+      K_phase = 0.35;
+      MaxClamp = 0.45;
+  } else if (phase === PHASES.ENDGAME.name) {
+      K_phase = 0.45;
+      MaxClamp = 0.60;
   }
 
-  const playerMitigation = playerDefense * 0.5;
-  const enemyMitigation = enemyDefense * 0.5;
+  // 3. The Algorithm
 
-  const playerEffective = Math.max(rawPlayerAttack * 0.2, rawPlayerAttack - enemyMitigation);
-  const enemyEffective = Math.max(rawEnemyAttack * 0.2, rawEnemyAttack - playerMitigation);
+  // Step A: Base Ratio (Logarithmic)
+  // Use BaseSums as 'Eff' (Efficiency/Power)
+  // Ensure stats are at least 1.0 to avoid Math.log(0) -> -Infinity
+  let PlayerEff = Math.max(1.0, playerBaseSum);
+  let EnemyEff = Math.max(1.0, enemyBaseSum);
+
+  // Skill: Iron Curtain (Defense Boost part)
+  // The attack reduction (-50%) is handled in Base Stats.
+  // The defense boost (+40%) is mapped here as reducing Enemy Efficiency.
+  if (skills.iron_curtain) {
+      EnemyEff /= 1.4;
+  }
+
+  const r = Math.log(PlayerEff / EnemyEff);
+
+  // Step B: Continuous Magnitude (How big is the move?)
+  const adv = Math.tanh(Math.abs(r) / S);
+  const rawMag = minProg + (1.0 - minProg) * Math.pow(adv, gamma);
+  const deltaMag = K_phase * rawMag;
+
+  // Step C: Probabilistic Direction (Who wins the move?)
+  // p = Probability that Player wins this move
+  const p = 1 / (1 + Math.exp(-a * r));
   
-  // Dampened Delta
-  let dampeningFactor = 0.1;
+  // Roll the dice
+  const isPlayerWinner = Math.random() < p;
+  const sign = isPlayerWinner ? 1 : -1;
+
+  // Step D: Final Calculation & Clamping
+  let finalDelta = sign * deltaMag;
   
-  let rawDelta = playerEffective - enemyEffective;
-  let delta = rawDelta * dampeningFactor;
+  // Clamp the base move delta (before sacrifices/skills)
+  let delta = Math.max(-MaxClamp, Math.min(MaxClamp, finalDelta));
   
   // Sacrifice Mechanic (One-Time Gambit)
   let sacrificeSwing = 0;
