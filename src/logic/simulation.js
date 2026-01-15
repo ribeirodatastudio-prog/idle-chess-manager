@@ -3,9 +3,9 @@ import { getOpponentIdentity } from './identity.js';
 import { TOURNAMENT_CONFIG } from './tournaments.js';
 
 export const PHASES = {
-  OPENING: { start: 1, end: 10, name: 'Opening' },
-  MIDGAME: { start: 11, end: 30, name: 'Midgame' },
-  ENDGAME: { start: 31, end: 50, name: 'Endgame' }
+  OPENING: { start: 1, end: 15, name: 'Opening' },
+  MIDGAME: { start: 16, end: 40, name: 'Midgame' },
+  ENDGAME: { start: 41, end: 50, name: 'Endgame' }
 };
 
 const getRandom = (min, max) => Math.random() * (max - min) + min;
@@ -247,41 +247,63 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
       enemyBaseSum *= Math.max(0, dropOff);
   }
 
-  // --- HYBRID ENGINE: CORE CALCULATION ---
+  // --- END NEW SKILL LOGIC (Part 1: Base Stats) ---
+  
+  // --- HYBRID PROBABILISTIC COMBAT ENGINE ---
 
-  // 1. Constants
+  // 1. Constants & Parameters
   const S = 0.30;
   const a = 6.0;
   const gamma = 1.6;
   const minProg = 0.30;
 
-  // 2. Efficiency Ratios
+  // 2. Phase Configuration
+  let K_phase = 0.25;
+  let MaxClamp = 0.30;
+
+  if (phase === PHASES.MIDGAME.name) {
+      K_phase = 0.35;
+      MaxClamp = 0.45;
+  } else if (phase === PHASES.ENDGAME.name) {
+      K_phase = 0.45;
+      MaxClamp = 0.60;
+  }
+
+  // 3. The Algorithm
+
+  // Step A: Base Ratio (Logarithmic)
+  // Use BaseSums as 'Eff' (Efficiency/Power)
+  // Ensure stats are at least 1.0 to avoid Math.log(0) -> -Infinity
   let PlayerEff = Math.max(1.0, playerBaseSum);
   let EnemyEff = Math.max(1.0, enemyBaseSum);
 
   // Skill: Iron Curtain (Defense Boost part)
-  // Defense boost (+40%) is mapped here as reducing Enemy Efficiency.
+  // The attack reduction (-50%) is handled in Base Stats.
+  // The defense boost (+40%) is mapped here as reducing Enemy Efficiency.
   if (skills.iron_curtain) {
       EnemyEff /= 1.4;
   }
 
   const r = Math.log(PlayerEff / EnemyEff);
 
-  // 3. Magnitude Calculation
+  // Step B: Continuous Magnitude (How big is the move?)
   const adv = Math.tanh(Math.abs(r) / S);
   const rawMag = minProg + (1.0 - minProg) * Math.pow(adv, gamma);
   const deltaMag = K_phase * rawMag;
 
-  // 4. Probabilistic Direction
+  // Step C: Probabilistic Direction (Who wins the move?)
+  // p = Probability that Player wins this move
   const p = 1 / (1 + Math.exp(-a * r));
+  
+  // Roll the dice
   const isPlayerWinner = Math.random() < p;
   const sign = isPlayerWinner ? 1 : -1;
 
-  // 5. Final Clamping
+  // Step D: Final Calculation & Clamping
   let finalDelta = sign * deltaMag;
-  let delta = Math.max(-MaxClamp, Math.min(MaxClamp, finalDelta));
   
-  // --- MOMENTUM SWINGS (SACRIFICES) ---
+  // Clamp the base move delta (before sacrifices/skills)
+  let delta = Math.max(-MaxClamp, Math.min(MaxClamp, finalDelta));
   
   let sacrificeSwing = 0;
   let triggeredSacrifice = false;
