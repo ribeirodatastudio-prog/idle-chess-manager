@@ -1,62 +1,56 @@
-# QA Report: Combat Sensitivity Audit
+# QA Report: Combat Engine Upgrade
 
 ## 1. Executive Summary
-**Issue:** User reported that game evaluations always hit the maximum cap ("Stomp") even in seemingly early game states.
-**Audit Result:** The combat formula is **working correctly**. The observed "saturation" is due to extreme stat disparities in the provided user case (User stats ~1 vs Opponent stats ~20 in Midgame), which mathematically results in a >99% loss probability per move.
-**Sensitivity Adjustment:** The Sensitivity constant `S` has been adjusted to `0.15` to ensure that a **50% Skill Difference** reliably triggers this maximum saturation, while smaller differences (e.g., 20%) allow for dynamic gameplay.
+**Issue:** User reported a logical anomaly where winning a move in a "lost" position resulted in a massive evaluation swing (equal to the opponent's winning magnitude).
+**Root Cause:** The previous engine used "Disparity Magnitude" regardless of *who* won the move. If the enemy was 10x stronger, the "Move Size" was maxed out. If the player won a 1% probability roll, they "stole" that maxed-out move size.
+**Fix:** Implemented **Direct Probability Mapping**.
+*   **Efficiency = Probability:** The winner's damage efficiency is now directly mapped to their probability of winning the move.
+*   **The "Lucky Shot" Rule:** If a player with 1% chance wins, their efficiency is clamped to **20%** (Floor).
+*   **The "Killer Instinct" Rule:** If a player with >90% chance wins, their efficiency is **100%** (Cap).
 
-## 2. User Case Analysis
-**Scenario:**
-- **Player Stats:** Opening: 6, All Others: 1.
-- **Opponent Stats (50 Elo):** Opening: ~18, Midgame: ~10, Endgame: ~12, Tactics: ~13.
+## 2. Verification Data
 
-### Why the "Stomp" Happens
-The combat engine calculates "Efficiency" based on the current phase.
-1.  **Opening (Move 1-10):**
-    *   **Player Eff:** 6.2 (6 + 1*0.2)
-    *   **Enemy Eff:** 20.6 (18 + 13*0.2)
-    *   **Ratio:** `ln(6.2 / 20.6) = -1.20`.
-    *   **Result:** The enemy is **3.3x stronger** than the player. This is >300% difference, far exceeding the 50% saturation point.
-    *   **Outcome:** Immediate Max Cap loss (-0.25 to -0.35 per turn).
+### Scenario A: The "Stomp" (Player has ~1% Chance)
+*Old Behavior:*
+*   Enemy Wins: Delta = -0.35 (Max)
+*   Player Wins: Delta = +0.35 (Max) -> *Unrealistic volatility.*
 
-2.  **Midgame (Move 11-30):**
-    *   **Player Eff:** 1.8 (1 + 1*0.8)
-    *   **Enemy Eff:** 20.4 (10 + 13*0.8)
-    *   **Ratio:** `ln(1.8 / 20.4) = -2.42`.
-    *   **Result:** The enemy is **11x stronger**.
-    *   **Outcome:** Immediate Max Cap loss.
+*New Behavior:*
+*   Enemy Wins (99% Prob): Efficiency = 1.0 (Cap). Delta ≈ **-0.35**.
+*   Player Wins (1% Prob): Efficiency = 0.20 (Floor). Delta ≈ **+0.07**.
+*   *Result:* losing players can fight back, but they can't land "Nuclear hits" just by getting lucky.
 
-### Detailed Math Trace (From Diagnostic Log)
-*S = 0.15 (High Sensitivity)*
+### Scenario B: Balanced Game (50/50)
+*Old Behavior:*
+*   Delta ≈ 0.08 (Fixed Floor).
 
-| Move | Phase | Player Eff | Enemy Eff | Ratio (r) | Advantage (tanh) | Raw Mag | Final Delta | Eval |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **1** | Opening | 6.20 | 20.60 | -1.20 | 1.00 (Max) | 1.00 | **-0.25** | -0.20 |
-| **5** | Opening | 6.20 | 20.60 | -1.20 | 1.00 (Max) | 1.00 | **-0.29** | -1.31 |
-| **10** | Opening | 6.20 | 20.60 | -1.20 | 1.00 (Max) | 1.00 | **-0.35** | -2.95 |
-| **11** | Midgame | 1.80 | 20.40 | -2.43 | 1.00 (Max) | 1.00 | **-0.35** | -3.30 |
-| **15** | Midgame | 1.80 | 20.40 | -2.43 | 1.00 (Max) | 1.00 | **-0.40** | -4.83 |
-| **23** | Midgame | 1.80 | 20.40 | -2.43 | 1.00 (Max) | 1.00 | **-0.51** | -8.53 |
+*New Behavior:*
+*   Efficiency ≈ 0.50.
+*   Delta = Base * 0.50 ≈ **0.04**.
+*   *Result:* Balanced games are tighter, more positional, and "drawish", matching real chess logic.
 
-**Conclusion:** The math accurately reflects that a player with Stat 1 is being crushed by an opponent with Stat 10+.
+### Scenario C: User's Specific Case (6 vs 20 Stats)
+The user is still severely outmatched (11x stat difference in Midgame).
+*   **Outcome:** The user will likely lose every move.
+*   **Improvement:** If the user *does* win a move, it will now be a small positional gain (+0.07) rather than a confusing "+0.30" spike.
 
-## 3. Control Group: Balanced Play
-To prove the formula allows for small increments when matched fairly:
+## 3. Revised Formulas (Source of Truth)
 
-**Scenario A: Perfect Balance (10 vs 10)**
-*   **Ratio:** 0.00
-*   **Advantage:** 0.00
-*   **Final Delta:** **0.075** (Minimum Floor).
-*   *Result: Small, tense game.*
+**Efficiency Calculation:**
+```javascript
+// 1. Identify Winner's Probability
+const winnerProb = isPlayerWinner ? p : (1.0 - p);
 
-**Scenario B: Moderate Advantage (12 vs 10, +20%)**
-*   **Ratio:** `ln(1.2) = 0.18`.
-*   **Advantage:** `tanh(0.18 / 0.15) = 0.83`.
-*   **Final Delta:** **0.19**.
-*   *Result: Decisive but not instant stomp.*
+// 2. Map to Efficiency
+let efficiency = winnerProb;
 
-## 4. Recommendations
-1.  **Stat Balance:** The user needs to upgrade Midgame/Tactics stats to compete, as "1" is effectively zero power against even the weakest bots (Rank 0, Tier 0).
-2.  **Formula Status:** The formula with `S=0.15` is performing exactly as requested:
-    *   Small diff (0-20%) -> Small/Medium Delta (0.07 - 0.19).
-    *   Large diff (>50%) -> Max Delta (Saturation).
+// 3. Apply Constraints
+if (efficiency < 0.20) efficiency = 0.20; // Luck Floor
+if (efficiency >= 0.90) efficiency = 1.0; // Killer Instinct Cap
+```
+
+**Final Delta:**
+```javascript
+// Variance (0.9 to 1.1) adds organic noise
+finalDelta = sign * deltaMag * efficiency * variance;
+```
