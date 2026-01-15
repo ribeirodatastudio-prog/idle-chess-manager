@@ -41,20 +41,28 @@ Matches are simulated move-by-move (50 moves max). The outcome is determined by 
 
 #### Phases & Calculation
 
-1.  **Attack Calculation:**
-    *   **Opening (Moves 1-10):** `BaseSum = Opening + (Tactics * 0.2)`.
-    *   **Midgame (Moves 11-30):** `BaseSum = Midgame + (Tactics * 0.8)`.
-    *   **Endgame (Moves 31-50):** `BaseSum = Endgame + (Tactics * 1.5)`.
-    *   **Raw Attack:** `(BaseSum * 0.5) * Random(0.95, 1.05)`.
+The combat engine uses a **Hybrid Continuous Magnitude + Probabilistic Initiative** model.
 
-2.  **Defense & Mitigation:**
-    *   **Mitigation:** `Defense * 0.5`.
-    *   **Effective Damage:** `Math.max(RawAttack * 0.2, RawAttack - Mitigation)`.
-    *   *Note: The "Safety Floor" ensures that at least 20% of an attack always penetrates, regardless of how high the Defense is.*
+**1. Phase Configuration**
+*   **Opening (Moves 1-15):** K_phase = 0.25, MaxClamp = 0.30. `BaseSum = Opening + (Tactics * 0.2)`.
+*   **Midgame (Moves 16-40):** K_phase = 0.35, MaxClamp = 0.45. `BaseSum = Midgame + (Tactics * 0.8)`.
+*   **Endgame (Moves 41-50):** K_phase = 0.45, MaxClamp = 0.60. `BaseSum = Endgame + (Tactics * 1.5)`.
 
-3.  **Delta & Evaluation:**
-    *   **Delta:** `(PlayerEffective - EnemyEffective) * 0.1`.
-    *   **New Eval:** `CurrentEval + Delta`.
+**2. The Algorithm**
+*   **Stats to Efficiency:** `PlayerEff` and `EnemyEff` are derived from the Phase's BaseSum logic (Game Mode weights and Skill Power modifiers apply here).
+*   **Step A (Ratio):** `r = Math.log(PlayerEff / EnemyEff)`.
+*   **Step B (Magnitude):** How much the evaluation changes.
+    *   `adv = Math.tanh(abs(r) / S)` where `S = 0.30`.
+    *   `rawMag = minProg + (1.0 - minProg) * adv^gamma` where `gamma = 1.6`, `minProg = 0.30`.
+    *   `deltaMag = K_phase * rawMag`.
+*   **Step C (Direction):** Who wins the turn (Probabilistic).
+    *   `p = 1 / (1 + exp(-a * r))` where `a = 6.0`.
+    *   `Sign` is determined by a random roll against `p`.
+*   **Step D (Final Delta):** `Clamped(Sign * deltaMag)`.
+
+**3. Momentum Swings**
+*   **Sacrifices:** The *only* source of massive momentum swings beyond the clamped delta. Sacrifice logic (2% chance) is added to the calculated delta.
+*   **Snowball:** In Endgame, if `abs(Eval) > 1.0`, the advantage grows by 10% per turn.
 
 #### Special Mechanics
 
@@ -65,7 +73,7 @@ Matches are simulated move-by-move (50 moves max). The outcome is determined by 
     *   **Cap:** Sacrifice chance effectively caps at Level 500 (100% success rate).
 
 *   **Endgame Snowball:**
-    *   From Move 31+, if `abs(Eval) > 1.0`, the advantage is multiplied by **1.1x** per turn. This prevents stalemates in lopsided games.
+    *   From Move 41+, if `abs(Eval) > 1.0`, the advantage is multiplied by **1.1x** per turn. This prevents stalemates in lopsided games.
 
 *   **Tie-Breakers:**
     *   **Move 50 Limit:** If no checkmate occurs by Move 50, the side with the higher **Tactical Superiority** (Tactics + Sacrifices) wins.
