@@ -111,7 +111,7 @@ export const useGameState = () => {
   }, []);
 
   // Offline Hook
-  const { isLoading: isOfflineLoading, offlineReport, clearReport } = useOfflineProgress(initialProductionRate);
+  const { isLoading: isOfflineLoading, offlineReport, clearReport, checkProgress } = useOfflineProgress(initialProductionRate);
 
   // 2. Stats State
   const [stats, setStats] = useState(() => {
@@ -179,6 +179,9 @@ export const useGameState = () => {
   // Ref to hold current state for saving
   const stateRef = useRef({ resources, stats, skills, tournament, puzzleStats, activePuzzle });
   const saveTimeoutRef = useRef(null);
+
+  // Track last tick for visibility/tab switching gap detection
+  const lastTickRef = useRef(Date.now());
 
   // Keep Ref updated
   useEffect(() => {
@@ -276,6 +279,9 @@ export const useGameState = () => {
       // Pause if calculating offline progress or showing report
       if (isOfflineLoading || offlineReport) return;
 
+      // Update last tick timestamp
+      lastTickRef.current = Date.now();
+
       setResources(prev => {
         const currentRanks = stateRef.current.tournament.ranks;
         const currentPuzzleStats = stateRef.current.puzzleStats; // Access via Ref for fresh value
@@ -299,6 +305,33 @@ export const useGameState = () => {
     }, 1000);
     return () => clearInterval(interval);
   }, [isOfflineLoading, offlineReport]);
+
+  // Visibility / Tab Switch Handler
+  useEffect(() => {
+      const handleVisibilityChange = () => {
+          if (document.visibilityState === 'visible') {
+              // Prevent triggering if already processing or showing report
+              if (isOfflineLoading || offlineReport) return;
+
+              const now = Date.now();
+              // Calculate seconds elapsed since last loop tick
+              const delta = (now - lastTickRef.current) / 1000;
+
+              // If gap > 5 seconds, treat as offline/backgrounded
+              if (delta > 5) {
+                  // We pass the last known active time.
+                  // checkProgress will calc (now - lastTime)
+                  checkProgress(lastTickRef.current);
+
+                  // Update ref to avoid double trigger
+                  lastTickRef.current = now;
+              }
+          }
+      };
+
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+      return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [checkProgress, isOfflineLoading, offlineReport]);
 
   // Actions
   const upgradeStat = useCallback((statName) => {
