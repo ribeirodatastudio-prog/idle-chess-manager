@@ -178,14 +178,19 @@ export const useGameState = () => {
 
   // Ref to hold current state for saving
   const stateRef = useRef({ resources, stats, skills, tournament, puzzleStats, activePuzzle });
+  const saveTimeoutRef = useRef(null);
 
   // Keep Ref updated
   useEffect(() => {
     stateRef.current = { resources, stats, skills, tournament, puzzleStats, activePuzzle };
   }, [resources, stats, skills, tournament, puzzleStats, activePuzzle]);
 
-  // Save Function
-  const saveGame = useCallback(() => {
+  // Synchronous Save (Core Logic)
+  const persistState = useCallback(() => {
+      if (saveTimeoutRef.current) {
+          clearTimeout(saveTimeoutRef.current);
+          saveTimeoutRef.current = null;
+      }
       const stateToSave = {
           ...stateRef.current,
           lastSaveTime: Date.now()
@@ -193,20 +198,34 @@ export const useGameState = () => {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
   }, []);
 
-  // Auto-Save Interval (30s)
+  // Debounced Save Wrapper
+  const saveGame = useCallback(() => {
+      if (saveTimeoutRef.current) {
+          clearTimeout(saveTimeoutRef.current);
+      }
+      saveTimeoutRef.current = setTimeout(() => {
+          persistState();
+          saveTimeoutRef.current = null;
+      }, 2000); // 2 Second Delay
+  }, [persistState]);
+
+  // Auto-Save Interval (30s) - Uses debounced save to avoid conflict, or force save?
+  // Using debounced save is safer to avoid double-writing if a user action just happened.
   useEffect(() => {
-      const interval = setInterval(saveGame, 30000);
+      const interval = setInterval(() => {
+          saveGame();
+      }, 30000);
       return () => clearInterval(interval);
   }, [saveGame]);
 
-  // Emergency Save on Close
+  // Emergency Save on Close - MUST be Synchronous
   useEffect(() => {
     const handleBeforeUnload = () => {
-      saveGame();
+      persistState();
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [saveGame]);
+  }, [persistState]);
 
   // Derived Values
   const totalWins = useMemo(() => {
