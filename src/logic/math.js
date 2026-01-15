@@ -28,11 +28,17 @@ export const calculateUpgradeCost = (currentLevel, hasPrepFiles = false, statNam
       cost *= wallMultiplier;
 
       // Note: Standard 5x spike does NOT apply to sacrifices to avoid double spiking.
+  } else if (statName === 'defense' || statName === 'tactics') {
+      // Defense/Tactics: Spike 5x every 75 levels (Permanent)
+      const spikeTier = Math.floor((currentLevel + 1) / 75);
+      const spikeMultiplier = Math.pow(5, spikeTier);
+      cost *= spikeMultiplier;
   } else {
-      // Standard Spike logic for other stats
-      if ((currentLevel + 1) % 100 === 0) {
-        cost *= 5;
-      }
+      // Standard Spike logic for other stats (Opening, Midgame, Endgame)
+      // Spike 5x every 100 levels (Permanent)
+      const spikeTier = Math.floor((currentLevel + 1) / 100);
+      const spikeMultiplier = Math.pow(5, spikeTier);
+      cost *= spikeMultiplier;
   }
   
   // Prep Files Discount (Category A)
