@@ -325,8 +325,8 @@ export const useGameState = () => {
   // Fix Missing Solved Count (Legacy Save Support)
   useEffect(() => {
       setPuzzleStats(prev => {
-          if (prev.solvedCount === undefined) {
-               const derived = Math.round(Math.log(prev.multiplier || 1.0) / Math.log(1.01));
+          const derived = Math.round(Math.log(prev.multiplier || 1.0) / Math.log(1.01));
+          if (prev.solvedCount === undefined || derived > (prev.solvedCount || 0)) {
                return { ...prev, solvedCount: derived };
           }
           return prev;
