@@ -279,59 +279,58 @@ export const useGameState = () => {
       // Pause if calculating offline progress or showing report
       if (isOfflineLoading || offlineReport) return;
 
-      // Update last tick timestamp
-      lastTickRef.current = Date.now();
+      const now = Date.now();
+      let delta = (now - lastTickRef.current) / 1000;
+      lastTickRef.current = now;
 
-      setResources(prev => {
-        const currentRanks = stateRef.current.tournament.ranks;
-        const currentPuzzleStats = stateRef.current.puzzleStats; // Access via Ref for fresh value
+      // Cap delta at 24 hours to prevent crazy values from system clock changes
+      if (delta > 86400) delta = 86400;
 
-        // Calculate Cumulative Tournament Index
-        const getIdx = (r) => (typeof r === 'object' ? r.tournamentIndex : 0);
-        const cumulativeIdx = GAME_MODES.reduce((sum, m) => sum + getIdx(currentRanks[m.id]), 0);
+      // Prevent negative delta
+      if (delta < 0) delta = 0;
 
-        let income = calculatePassiveIncomePerSecond(cumulativeIdx);
+      if (delta > 0) {
+        setResources(prev => {
+            const currentRanks = stateRef.current.tournament.ranks;
+            const currentPuzzleStats = stateRef.current.puzzleStats; // Access via Ref for fresh value
 
-        // Apply Puzzle Multiplier
-        if (currentPuzzleStats && currentPuzzleStats.multiplier) {
-            income *= currentPuzzleStats.multiplier;
-        }
+            // Calculate Cumulative Tournament Index
+            const getIdx = (r) => (typeof r === 'object' ? r.tournamentIndex : 0);
+            const cumulativeIdx = GAME_MODES.reduce((sum, m) => sum + getIdx(currentRanks[m.id]), 0);
 
-        return {
-          ...prev,
-          studyTime: prev.studyTime + income
-        };
-      });
+            let income = calculatePassiveIncomePerSecond(cumulativeIdx);
+
+            // Apply Puzzle Multiplier
+            if (currentPuzzleStats && currentPuzzleStats.multiplier) {
+                income *= currentPuzzleStats.multiplier;
+            }
+
+            return {
+            ...prev,
+            studyTime: prev.studyTime + (income * delta)
+            };
+        });
+      }
     }, 1000);
     return () => clearInterval(interval);
   }, [isOfflineLoading, offlineReport]);
 
   // Visibility / Tab Switch Handler
+  // Note: We removed the checkProgress call here to allow "Seamless" background simulation.
+  // The main loop now uses delta-time, so when the tab becomes visible and the loop resumes,
+  // it will automatically catch up on the missing time without triggering the "Offline Report".
   useEffect(() => {
       const handleVisibilityChange = () => {
           if (document.visibilityState === 'visible') {
-              // Prevent triggering if already processing or showing report
-              if (isOfflineLoading || offlineReport) return;
-
-              const now = Date.now();
-              // Calculate seconds elapsed since last loop tick
-              const delta = (now - lastTickRef.current) / 1000;
-
-              // If gap > 5 seconds, treat as offline/backgrounded
-              if (delta > 5) {
-                  // We pass the last known active time.
-                  // checkProgress will calc (now - lastTime)
-                  checkProgress(lastTickRef.current);
-
-                  // Update ref to avoid double trigger
-                  lastTickRef.current = now;
-              }
+              // Force a tick update logic if needed?
+              // Actually, the interval will fire naturally.
+              // We just ensure we don't reset lastTickRef here.
           }
       };
 
       document.addEventListener('visibilitychange', handleVisibilityChange);
       return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [checkProgress, isOfflineLoading, offlineReport]);
+  }, []);
 
   // Actions
   const upgradeStat = useCallback((statName) => {
