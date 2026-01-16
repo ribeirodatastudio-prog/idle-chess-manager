@@ -2,15 +2,28 @@ import React, { useState } from 'react';
 import { SKILLS, getSkillById } from '../logic/skills';
 import { Sword, Shield, Skull, Lock, CheckCircle2 } from 'lucide-react';
 
-const TreeColumn = ({ phaseName, parentId, skills, ownedSkills, availableSP, onPurchase, locked }) => {
+const getBonusText = (skill, level) => {
+    if (level === 0) return null;
+    // Instinct Risk Sub-skills
+    if (skill.id.includes('inst_sac')) return `+${level}% Chance`;
+    // Instinct Tactics/Defense Sub-skills
+    if (skill.id.includes('inst_')) return `+${level}%`;
+    // Phase Mastery (Study) Sub-skills
+    if (skill.category === 'Phase Mastery') return `+${level * 10}%`;
+    return null;
+};
+
+const TreeColumn = ({ title, parentId, skills, ownedSkills, availableSP, onPurchase, locked }) => {
     const parentSkill = getSkillById(parentId);
     const parentOwned = !!ownedSkills[parentId];
 
-    // If entire column is locked (due to exclusivity)
+    // Parent Bonus (Fixed 10% for these roots)
+    const parentBonus = parentOwned ? "+10%" : null;
+
     if (locked) {
         return (
             <div className="flex flex-col items-center opacity-30 pointer-events-none grayscale">
-                <div className="text-gray-400 font-bold mb-2 uppercase tracking-wider text-xs">{phaseName}</div>
+                <div className="text-gray-400 font-bold mb-2 uppercase tracking-wider text-xs">{title}</div>
                 <ParentNode skill={parentSkill} owned={false} />
                 <div className="h-8 w-0.5 bg-gray-700 my-2"></div>
                 <div className="flex gap-2">
@@ -22,19 +35,19 @@ const TreeColumn = ({ phaseName, parentId, skills, ownedSkills, availableSP, onP
 
     return (
         <div className="flex flex-col items-center">
-            <div className="text-gray-400 font-bold mb-2 uppercase tracking-wider text-xs">{phaseName}</div>
-            {/* Parent Node */}
+            <div className="text-gray-400 font-bold mb-2 uppercase tracking-wider text-xs">{title}</div>
+
             <ParentNode
                 skill={parentSkill}
                 owned={parentOwned}
                 canAfford={availableSP >= parentSkill.spCost}
                 onPurchase={onPurchase}
+                bonusText={parentBonus}
+                icon={true} // Always show icon if available
             />
 
-            {/* Connector */}
             <div className={`h-8 w-0.5 my-2 transition-colors ${parentOwned ? 'bg-purple-500' : 'bg-gray-700'}`}></div>
 
-            {/* Children */}
             <div className="flex gap-2">
                 {skills.map(skill => {
                     const level = typeof ownedSkills[skill.id] === 'number'
@@ -42,6 +55,7 @@ const TreeColumn = ({ phaseName, parentId, skills, ownedSkills, availableSP, onP
                                   : (ownedSkills[skill.id] ? 1 : 0);
                     const isMaxed = level >= skill.maxLevel;
                     const canAfford = availableSP >= skill.spCost;
+                    const bonusText = getBonusText(skill, level);
 
                     return (
                         <ChildNode
@@ -52,6 +66,7 @@ const TreeColumn = ({ phaseName, parentId, skills, ownedSkills, availableSP, onP
                             canAfford={canAfford}
                             isMaxed={isMaxed}
                             onPurchase={onPurchase}
+                            bonusText={bonusText}
                         />
                     );
                 })}
@@ -60,26 +75,12 @@ const TreeColumn = ({ phaseName, parentId, skills, ownedSkills, availableSP, onP
     );
 };
 
-const InstinctColumn = ({ skill, owned, locked, availableSP, onPurchase }) => {
-     return (
-        <div className={`flex flex-col items-center ${locked ? 'opacity-30 pointer-events-none grayscale' : ''}`}>
-             <ParentNode
-                skill={skill}
-                owned={owned}
-                canAfford={!locked && availableSP >= skill.spCost}
-                onPurchase={onPurchase}
-                icon={true}
-            />
-        </div>
-     );
-}
-
-const ParentNode = ({ skill, owned, canAfford, onPurchase, icon }) => {
+const ParentNode = ({ skill, owned, canAfford, onPurchase, icon, bonusText }) => {
     let IconComponent = null;
     if (icon) {
          if (skill.id.includes('tactics')) IconComponent = Sword;
          if (skill.id.includes('defense')) IconComponent = Shield;
-         if (skill.id.includes('risk')) IconComponent = Skull;
+         if (skill.id.includes('risk') || skill.id.includes('sac')) IconComponent = Skull;
     }
 
     return (
@@ -98,14 +99,14 @@ const ParentNode = ({ skill, owned, canAfford, onPurchase, icon }) => {
             {IconComponent && <IconComponent size={20} className="mb-1 text-purple-400" />}
             <div className="font-bold text-sm text-center leading-tight">{skill.name}</div>
 
-             {/* Tooltip for Description since these are roots */}
              <div className="absolute bottom-full mb-2 hidden group-hover:block z-50 w-48 bg-gray-900 border border-gray-700 p-3 rounded shadow-xl text-center">
                 <div className="text-[10px] text-gray-400 leading-tight">{skill.description}</div>
             </div>
 
             {owned ? (
                 <div className="text-[10px] uppercase font-bold bg-purple-500/20 px-2 py-0.5 rounded text-purple-300 flex items-center gap-1">
-                    <CheckCircle2 size={10} /> Owned
+                    <CheckCircle2 size={10} />
+                    {bonusText || 'Owned'}
                 </div>
             ) : (
                 <div className="text-[10px] font-mono opacity-80">{skill.spCost} SP</div>
@@ -114,8 +115,7 @@ const ParentNode = ({ skill, owned, canAfford, onPurchase, icon }) => {
     );
 };
 
-const ChildNode = ({ skill, level, locked, canAfford, isMaxed, onPurchase }) => {
-    // Determine Icon based on ID/Name
+const ChildNode = ({ skill, level, locked, canAfford, isMaxed, onPurchase, bonusText }) => {
     let Icon = Sword;
     if (skill.id.includes('def')) Icon = Shield;
     if (skill.id.includes('sac')) Icon = Skull;
@@ -145,9 +145,11 @@ const ChildNode = ({ skill, level, locked, canAfford, isMaxed, onPurchase }) => 
                  {!isMaxed && !locked && (
                      <div className="text-[9px] opacity-60 font-mono">{skill.spCost} SP</div>
                  )}
+                 {bonusText && (
+                     <div className="text-[9px] text-purple-300 font-bold mt-0.5">{bonusText}</div>
+                 )}
             </div>
 
-            {/* Tooltip */}
             <div className="absolute bottom-full mb-2 hidden group-hover:block z-50 w-32 bg-gray-900 border border-gray-700 p-2 rounded shadow-xl text-center">
                 <div className="text-[10px] font-bold text-gray-300 mb-1">{skill.name}</div>
                 <div className="text-[9px] text-gray-500 leading-tight">{skill.description}</div>
@@ -158,20 +160,21 @@ const ChildNode = ({ skill, level, locked, canAfford, isMaxed, onPurchase }) => 
 
 export const SkillTreeModal = ({ isOpen, onClose, skills, derivedStats, onPurchase }) => {
     if (!isOpen) return null;
+    const [activeTab, setActiveTab] = useState('study'); // 'study' | 'instinct'
 
     const { studyPoints } = derivedStats;
 
-    // Filter Skills
+    // Study Skills Children
     const openingChildren = SKILLS.filter(s => s.parentId === 'study_opening');
     const midgameChildren = SKILLS.filter(s => s.parentId === 'study_midgame');
     const endgameChildren = SKILLS.filter(s => s.parentId === 'study_endgame');
 
-    // Instinct Skills
-    const instinctTactics = getSkillById('instinct_tactics');
-    const instinctDefense = getSkillById('instinct_defense');
-    const instinctRisk = getSkillById('instinct_risk');
+    // Instinct Skills Children
+    const instinctTacticsChildren = SKILLS.filter(s => s.parentId === 'instinct_tactics');
+    const instinctDefenseChildren = SKILLS.filter(s => s.parentId === 'instinct_defense');
+    const instinctRiskChildren = SKILLS.filter(s => s.parentId === 'instinct_risk');
 
-    // Determine Lock State (Exclusivity - Study Path)
+    // Locks (Study)
     const hasOpening = !!skills['study_opening'];
     const hasMidgame = !!skills['study_midgame'];
     const hasEndgame = !!skills['study_endgame'];
@@ -180,7 +183,7 @@ export const SkillTreeModal = ({ isOpen, onClose, skills, derivedStats, onPurcha
     const lockMidgame = hasOpening || hasEndgame;
     const lockEndgame = hasOpening || hasMidgame;
 
-    // Determine Lock State (Exclusivity - Instinct Path)
+    // Locks (Instinct)
     const hasInstinctTactics = !!skills['instinct_tactics'];
     const hasInstinctDefense = !!skills['instinct_defense'];
     const hasInstinctRisk = !!skills['instinct_risk'];
@@ -189,38 +192,59 @@ export const SkillTreeModal = ({ isOpen, onClose, skills, derivedStats, onPurcha
     const lockInstinctDefense = hasInstinctTactics || hasInstinctRisk;
     const lockInstinctRisk = hasInstinctTactics || hasInstinctDefense;
 
-
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
             <div className="bg-[#1E1E24] w-full max-w-5xl rounded-2xl border border-gray-700 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
 
                 {/* Header */}
-                <div className="p-6 border-b border-gray-700 flex justify-between items-center bg-[#252529]">
-                    <div>
-                        <h2 className="text-xl font-bold text-gray-100 flex items-center gap-2">
-                             🎓 Phase Specializations
-                        </h2>
-                        <p className="text-sm text-gray-400 mt-1">
-                            Choose your Study Path and Instinct Focus. Paths within each category are mutually exclusive.
-                        </p>
+                <div className="p-6 border-b border-gray-700 bg-[#252529]">
+                    <div className="flex justify-between items-center mb-4">
+                        <div>
+                            <h2 className="text-xl font-bold text-gray-100 flex items-center gap-2">
+                                🎓 Phase Specializations
+                            </h2>
+                            <p className="text-sm text-gray-400 mt-1">
+                                Choose your specialized path. Paths within each category are mutually exclusive.
+                            </p>
+                        </div>
+                        <div className="text-right">
+                            <div className="text-xs text-gray-500 uppercase tracking-widest">Study Points</div>
+                            <div className="text-2xl font-mono font-bold text-blue-400">{studyPoints || 0}</div>
+                        </div>
                     </div>
-                    <div className="text-right">
-                         <div className="text-xs text-gray-500 uppercase tracking-widest">Study Points</div>
-                         <div className="text-2xl font-mono font-bold text-blue-400">{studyPoints || 0}</div>
+
+                    {/* Tabs */}
+                    <div className="flex gap-4">
+                        <button
+                            onClick={() => setActiveTab('study')}
+                            className={`px-4 py-2 text-sm font-bold uppercase tracking-wider rounded-lg transition-all ${
+                                activeTab === 'study'
+                                    ? 'bg-purple-600 text-white shadow-lg'
+                                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                            }`}
+                        >
+                            Study Focus
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('instinct')}
+                            className={`px-4 py-2 text-sm font-bold uppercase tracking-wider rounded-lg transition-all ${
+                                activeTab === 'instinct'
+                                    ? 'bg-purple-600 text-white shadow-lg'
+                                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                            }`}
+                        >
+                            Instinct Focus
+                        </button>
                     </div>
                 </div>
 
                 {/* Content */}
-                <div className="p-8 overflow-y-auto flex-1 flex flex-col gap-10">
+                <div className="p-8 overflow-y-auto flex-1 flex flex-col items-center">
 
-                    {/* Study Focus Section */}
-                    <div>
-                        <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-6 text-center border-b border-gray-800 pb-2">
-                            Study Focus (Select One)
-                        </h3>
-                        <div className="flex justify-center gap-8 md:gap-16">
+                    {activeTab === 'study' && (
+                        <div className="flex justify-center gap-8 md:gap-16 fade-in">
                             <TreeColumn
-                                phaseName="Opening"
+                                title="Opening"
                                 parentId="study_opening"
                                 skills={openingChildren}
                                 ownedSkills={skills}
@@ -230,7 +254,7 @@ export const SkillTreeModal = ({ isOpen, onClose, skills, derivedStats, onPurcha
                             />
 
                             <TreeColumn
-                                phaseName="Midgame"
+                                title="Midgame"
                                 parentId="study_midgame"
                                 skills={midgameChildren}
                                 ownedSkills={skills}
@@ -240,7 +264,7 @@ export const SkillTreeModal = ({ isOpen, onClose, skills, derivedStats, onPurcha
                             />
 
                             <TreeColumn
-                                phaseName="Endgame"
+                                title="Endgame"
                                 parentId="study_endgame"
                                 skills={endgameChildren}
                                 ownedSkills={skills}
@@ -249,48 +273,41 @@ export const SkillTreeModal = ({ isOpen, onClose, skills, derivedStats, onPurcha
                                 locked={lockEndgame}
                             />
                         </div>
-                    </div>
+                    )}
 
-                    {/* Instinct Focus Section */}
-                    <div>
-                        <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-6 text-center border-b border-gray-800 pb-2">
-                            Instinct Focus (Select One)
-                        </h3>
-                        <div className="flex justify-center gap-8 md:gap-16">
-                            <div className="flex flex-col items-center">
-                                <div className="text-gray-400 font-bold mb-2 uppercase tracking-wider text-xs">Tactics</div>
-                                <InstinctColumn
-                                    skill={instinctTactics}
-                                    owned={hasInstinctTactics}
-                                    locked={lockInstinctTactics}
-                                    availableSP={studyPoints || 0}
-                                    onPurchase={onPurchase}
-                                />
-                            </div>
+                    {activeTab === 'instinct' && (
+                        <div className="flex justify-center gap-8 md:gap-16 fade-in">
+                            <TreeColumn
+                                title="Tactics"
+                                parentId="instinct_tactics"
+                                skills={instinctTacticsChildren}
+                                ownedSkills={skills}
+                                availableSP={studyPoints || 0}
+                                onPurchase={onPurchase}
+                                locked={lockInstinctTactics}
+                            />
 
-                            <div className="flex flex-col items-center">
-                                <div className="text-gray-400 font-bold mb-2 uppercase tracking-wider text-xs">Defense</div>
-                                <InstinctColumn
-                                    skill={instinctDefense}
-                                    owned={hasInstinctDefense}
-                                    locked={lockInstinctDefense}
-                                    availableSP={studyPoints || 0}
-                                    onPurchase={onPurchase}
-                                />
-                            </div>
+                            <TreeColumn
+                                title="Defense"
+                                parentId="instinct_defense"
+                                skills={instinctDefenseChildren}
+                                ownedSkills={skills}
+                                availableSP={studyPoints || 0}
+                                onPurchase={onPurchase}
+                                locked={lockInstinctDefense}
+                            />
 
-                            <div className="flex flex-col items-center">
-                                <div className="text-gray-400 font-bold mb-2 uppercase tracking-wider text-xs">Risk</div>
-                                <InstinctColumn
-                                    skill={instinctRisk}
-                                    owned={hasInstinctRisk}
-                                    locked={lockInstinctRisk}
-                                    availableSP={studyPoints || 0}
-                                    onPurchase={onPurchase}
-                                />
-                            </div>
+                            <TreeColumn
+                                title="Risk"
+                                parentId="instinct_risk"
+                                skills={instinctRiskChildren}
+                                ownedSkills={skills}
+                                availableSP={studyPoints || 0}
+                                onPurchase={onPurchase}
+                                locked={lockInstinctRisk}
+                            />
                         </div>
-                    </div>
+                    )}
 
                 </div>
 

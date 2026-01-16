@@ -253,6 +253,13 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
     if (defLvl > 0) playerStats.defense *= (1 + (0.1 * defLvl));
     if (tacLvl > 0) playerStats.tactics *= (1 + (0.1 * tacLvl));
 
+    // Instinct Focus Modifiers
+    const instDefLvl = getSkillLevel(skills, 'inst_def_op');
+    const instTacLvl = getSkillLevel(skills, 'inst_tac_op');
+
+    if (instDefLvl > 0) playerStats.defense *= (1 + (0.01 * instDefLvl));
+    if (instTacLvl > 0) playerStats.tactics *= (1 + (0.01 * instTacLvl));
+
     // Stats
     playerBaseSum = playerStats.opening + (playerStats.tactics * 0.2);
     enemyBaseSum = enemyStats.opening + (enemyStats.tactics * 0.2);
@@ -275,6 +282,13 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
     if (defLvl > 0) playerStats.defense *= (1 + (0.1 * defLvl));
     if (tacLvl > 0) playerStats.tactics *= (1 + (0.1 * tacLvl));
 
+    // Instinct Focus Modifiers
+    const instDefLvl = getSkillLevel(skills, 'inst_def_mid');
+    const instTacLvl = getSkillLevel(skills, 'inst_tac_mid');
+
+    if (instDefLvl > 0) playerStats.defense *= (1 + (0.01 * instDefLvl));
+    if (instTacLvl > 0) playerStats.tactics *= (1 + (0.01 * instTacLvl));
+
     // Stats
     playerBaseSum = playerStats.midgame + (playerStats.tactics * 0.8);
     enemyBaseSum = enemyStats.midgame + (enemyStats.tactics * 0.8);
@@ -296,6 +310,13 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
 
     if (defLvl > 0) playerStats.defense *= (1 + (0.1 * defLvl));
     if (tacLvl > 0) playerStats.tactics *= (1 + (0.1 * tacLvl));
+
+    // Instinct Focus Modifiers
+    const instDefLvl = getSkillLevel(skills, 'inst_def_end');
+    const instTacLvl = getSkillLevel(skills, 'inst_tac_end');
+
+    if (instDefLvl > 0) playerStats.defense *= (1 + (0.01 * instDefLvl));
+    if (instTacLvl > 0) playerStats.tactics *= (1 + (0.01 * instTacLvl));
     
     // Stats
     playerBaseSum = playerStats.endgame + (playerStats.tactics * 1.5);
@@ -427,12 +448,21 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
   if (moveNumber <= PHASES.OPENING.end) {
       const sacLvl = getSkillLevel(skills, 'op_sac_master');
       if (sacLvl > 0) sacrificeChance += (0.01 * sacLvl);
+
+      const instSacLvl = getSkillLevel(skills, 'inst_sac_op');
+      if (instSacLvl > 0) sacrificeChance += (0.01 * instSacLvl);
   } else if (moveNumber <= PHASES.MIDGAME.end) {
       const sacLvl = getSkillLevel(skills, 'mid_sac_master');
       if (sacLvl > 0) sacrificeChance += (0.01 * sacLvl);
+
+      const instSacLvl = getSkillLevel(skills, 'inst_sac_mid');
+      if (instSacLvl > 0) sacrificeChance += (0.01 * instSacLvl);
   } else {
       const sacLvl = getSkillLevel(skills, 'end_sac_master');
       if (sacLvl > 0) sacrificeChance += (0.01 * sacLvl);
+
+      const instSacLvl = getSkillLevel(skills, 'inst_sac_end');
+      if (instSacLvl > 0) sacrificeChance += (0.01 * instSacLvl);
   }
 
   if (moveNumber > 5 && sacrificesCount < maxSacrifices) {
