@@ -209,7 +209,19 @@ const getSkillLevel = (skills, id) => {
     return val ? 1 : 0;
 };
 
-export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, currentEval, skills = {}, phase1Won = false, move11Eval = 0, mode = 'rapid', sacrificesCount = 0) => {
+export const getPhaseConfig = (skills = {}) => {
+  const opExtender = getSkillLevel(skills, 'op_extender');
+  const midExtender = getSkillLevel(skills, 'mid_extender');
+  const endExtender = getSkillLevel(skills, 'end_extender');
+
+  const openingEnd = 10 + opExtender;
+  const midgameEnd = 30 + opExtender + midExtender;
+  const maxTurns = 50 + endExtender;
+
+  return { openingEnd, midgameEnd, maxTurns };
+};
+
+export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, currentEval, skills = {}, phase1Won = false, move11Eval = 0, mode = 'rapid', sacrificesCount = 0, phaseConfig = null) => {
   // --- PREPARATION & WEIGHTS ---
   const playerStats = applyModeWeights(rawPlayerStats, mode);
   const enemyStats = applyModeWeights(rawEnemyStats, mode);
@@ -234,6 +246,14 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
   }
 
   // --- PHASE DETERMINATION & BASE SUMS ---
+
+  // Use provided phaseConfig or default to constants
+  const phases = phaseConfig || {
+      openingEnd: PHASES.OPENING.end,
+      midgameEnd: PHASES.MIDGAME.end,
+      maxTurns: PHASES.ENDGAME.end
+  };
+
   let phase = '';
   let playerBaseSum = 0;
   let enemyBaseSum = 0;
@@ -243,7 +263,7 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
   let K_phase = 0.25;
   let MaxClamp = 0.30;
   
-  if (moveNumber <= PHASES.OPENING.end) {
+  if (moveNumber <= phases.openingEnd) {
     phase = PHASES.OPENING.name;
     
     // Phase Mastery Modifiers
@@ -265,14 +285,14 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
     enemyBaseSum = enemyStats.opening + (enemyStats.tactics * 0.2);
 
     // Dynamic Interpolation
-    const pStart = PHASES.OPENING.start;
-    const pEnd = PHASES.OPENING.end;
+    const pStart = 1;
+    const pEnd = phases.openingEnd;
     const progress = Math.min(1.0, Math.max(0.0, (moveNumber - pStart) / (pEnd - pStart)));
 
     K_phase = lerp(0.25, 0.35, progress);
     MaxClamp = lerp(0.30, 0.45, progress);
     
-  } else if (moveNumber <= PHASES.MIDGAME.end) {
+  } else if (moveNumber <= phases.midgameEnd) {
     phase = PHASES.MIDGAME.name;
     
     // Phase Mastery Modifiers
@@ -294,8 +314,8 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
     enemyBaseSum = enemyStats.midgame + (enemyStats.tactics * 0.8);
 
     // Dynamic Interpolation
-    const pStart = PHASES.MIDGAME.start;
-    const pEnd = PHASES.MIDGAME.end;
+    const pStart = phases.openingEnd + 1;
+    const pEnd = phases.midgameEnd;
     const progress = Math.min(1.0, Math.max(0.0, (moveNumber - pStart) / (pEnd - pStart)));
 
     K_phase = lerp(0.35, 0.60, progress);
@@ -323,8 +343,8 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
     enemyBaseSum = enemyStats.endgame + (enemyStats.tactics * 1.5);
 
     // Dynamic Interpolation
-    const pStart = PHASES.ENDGAME.start;
-    const pEnd = PHASES.ENDGAME.end;
+    const pStart = phases.midgameEnd + 1;
+    const pEnd = phases.maxTurns;
     const progress = Math.min(1.0, Math.max(0.0, (moveNumber - pStart) / (pEnd - pStart)));
 
     K_phase = lerp(0.60, 0.90, progress);
@@ -445,7 +465,7 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
   if (skills.chaos_theory) sacrificeChance *= 2.0;
 
   // Phase Mastery Sacrifice Modifiers
-  if (moveNumber <= PHASES.OPENING.end) {
+  if (moveNumber <= phases.openingEnd) {
       const sacLvl = getSkillLevel(skills, 'op_sac_master');
       if (sacLvl > 0) sacrificeChance += (0.01 * sacLvl);
 
@@ -465,47 +485,104 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
       if (instSacLvl > 0) sacrificeChance += (0.01 * instSacLvl);
   }
 
-  if (moveNumber > 5 && sacrificesCount < maxSacrifices) {
-    let initiator = null;
-    const playerRoll = Math.random();
-    const enemyRoll = Math.random();
+  // --- SCRIPTED SACRIFICES (GAMBITS) ---
+  let forceSacrifice = false;
 
-    if (playerRoll < sacrificeChance) {
-        initiator = 'player';
-    } else if (enemyRoll < sacrificeChance) {
-        initiator = 'enemy';
-    }
+  const opGambit = getSkillLevel(skills, 'op_gambit');
+  const midGambit = getSkillLevel(skills, 'mid_gambit');
+  const endGambit = getSkillLevel(skills, 'end_gambit');
 
-    if (initiator) {
-        triggeredSacrifice = true;
-        const isPlayer = initiator === 'player';
-        const actorStats = isPlayer ? playerStats : enemyStats;
+  if (opGambit > 0 && moveNumber === 5) forceSacrifice = true;
+  if (midGambit > 0 && moveNumber === 25) forceSacrifice = true;
+  if (endGambit > 0 && moveNumber === 35) forceSacrifice = true;
 
-        // Success Check: Roll < (Level * 0.2)
-        const successChance = Math.min(actorStats.sacrifices * 0.2, 100);
-        const roll = Math.random() * 100;
-        const isSuccess = roll < successChance;
+  // Logic:
+  // If forceSacrifice, we set triggeredSacrifice = true and SKIP the chance check.
+  // We also bypass the maxSacrifices limit check for this specific instance.
 
-        if (isPlayer) {
-            if (isSuccess) {
-                sacrificeSwing = 5.0;
-                logMessage = '!! BRILLIANT SACRIFICE !! The engine didn\'t see it coming!';
-                if (skills.brilliant_bounty) triggerBrilliantBounty = true;
-            } else {
-                sacrificeSwing = -2.0;
-                logMessage = 'Unsound Sacrifice... The opponent refutes it.';
-            }
-        } else {
-            if (isSuccess) {
-                sacrificeSwing = -5.0;
-                logMessage = '!! OPPONENT SACRIFICE !! The AI unleashes chaos!';
-            } else {
-                sacrificeSwing = 2.0;
-                logMessage = 'Opponent blunders a sacrifice!';
-            }
+  if (forceSacrifice) {
+      triggeredSacrifice = true;
+      // We still need to determine success/fail, defaulting to Player initiation since it's a Player Skill
+
+      const actorStats = playerStats;
+      const successChance = Math.min(actorStats.sacrifices * 0.2, 100);
+      const roll = Math.random() * 100;
+      const isSuccess = roll < successChance;
+
+      if (isSuccess) {
+          sacrificeSwing = 5.0;
+          logMessage = '!! GAMBIT !! A prepared sacrifice strikes!';
+          if (skills.brilliant_bounty) triggerBrilliantBounty = true;
+      } else {
+          sacrificeSwing = -2.0;
+          logMessage = 'Gambit Refuted... The sacrifice was unsound.';
+      }
+
+      delta += sacrificeSwing;
+
+  } else {
+      // Standard Sacrifice Logic
+      if (moveNumber > 5 && sacrificesCount < maxSacrifices) {
+        let initiator = null;
+        const playerRoll = Math.random();
+        const enemyRoll = Math.random();
+
+        if (playerRoll < sacrificeChance) {
+            initiator = 'player';
+        } else if (enemyRoll < sacrificeChance) {
+            initiator = 'enemy';
         }
-        delta += sacrificeSwing;
-    }
+
+        if (initiator) {
+            triggeredSacrifice = true;
+            const isPlayer = initiator === 'player';
+            const actorStats = isPlayer ? playerStats : enemyStats;
+
+            // Success Check: Roll < (Level * 0.2)
+            const successChance = Math.min(actorStats.sacrifices * 0.2, 100);
+            const roll = Math.random() * 100;
+            const isSuccess = roll < successChance;
+
+            if (isPlayer) {
+                if (isSuccess) {
+                    sacrificeSwing = 5.0;
+                    logMessage = '!! BRILLIANT SACRIFICE !! The engine didn\'t see it coming!';
+                    if (skills.brilliant_bounty) triggerBrilliantBounty = true;
+                } else {
+                    sacrificeSwing = -2.0;
+                    logMessage = 'Unsound Sacrifice... The opponent refutes it.';
+                }
+            } else {
+                if (isSuccess) {
+                    sacrificeSwing = -5.0;
+                    logMessage = '!! OPPONENT SACRIFICE !! The AI unleashes chaos!';
+                } else {
+                    sacrificeSwing = 2.0;
+                    logMessage = 'Opponent blunders a sacrifice!';
+                }
+            }
+            delta += sacrificeSwing;
+        }
+      }
+  }
+
+  // --- EVAL INJECTION (BOOSTS) ---
+  const opCaro = getSkillLevel(skills, 'op_caro');
+  const midBoost = getSkillLevel(skills, 'mid_boost');
+  const endBoost = getSkillLevel(skills, 'end_boost');
+
+  if (opCaro > 0 && moveNumber === 1) {
+      delta += (0.1 * opCaro);
+  }
+
+  // Midgame Boost: Starts at openingEnd + 1
+  if (midBoost > 0 && moveNumber === (phases.openingEnd + 1)) {
+      delta += (0.1 * midBoost);
+  }
+
+  // Endgame Boost: Starts at midgameEnd + 1
+  if (endBoost > 0 && moveNumber === (phases.midgameEnd + 1)) {
+      delta += (0.1 * endBoost);
   }
   
   // --- SKILL MODIFIERS (RESULT) ---
@@ -541,7 +618,12 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
   else if (newEval <= -winThreshold) result = 'loss';
   
   // 2. Check Draw A (Remis Zone 30-49)
-  if (!result && moveNumber >= 30 && moveNumber <= 49) {
+  // Adjusted for maxTurns? Remis zone is typically "Late Game but before limit"
+  // Let's keep 30-49 range roughly, but maybe scale if maxTurns > 50?
+  // User didn't specify Remis Zone change, but logically it should be near end.
+  // For safety, let's keep 30 to (maxTurns - 1).
+
+  if (!result && moveNumber >= 30 && moveNumber < phases.maxTurns) {
     if (newEval > -1.0 && newEval < 1.0) {
       if (Math.random() < 0.15) {
         result = 'draw';
@@ -550,8 +632,8 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
     }
   }
   
-  // 3. Check Draw B (Move 50 Limit)
-  if (!result && moveNumber >= 50) {
+  // 3. Check Draw B (Move Limit)
+  if (!result && moveNumber >= phases.maxTurns) {
     if (skills.iron_curtain && newEval > -8.0) {
         result = 'win';
         logMessage = 'Iron Curtain! Survival is Victory.';
@@ -567,7 +649,7 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
             logMessage = 'Draw avoided! Opponent wins by Tactical Superiority.';
         } else {
             result = 'draw';
-            logMessage = 'Game drawn by move limit (50). Stats identical.';
+            logMessage = `Game drawn by move limit (${phases.maxTurns}). Stats identical.`;
         }
     }
   }
@@ -579,7 +661,8 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
     phase,
     sacrificeSwing,
     logMessage,
-    sacrificesCount: triggeredSacrifice ? sacrificesCount + 1 : sacrificesCount,
+    // If forced sacrifice, return original count (do not consume). Else if triggered, increment.
+    sacrificesCount: (triggeredSacrifice && !forceSacrifice) ? sacrificesCount + 1 : sacrificesCount,
     hasSacrificed: triggeredSacrifice,
     triggerBrilliantBounty,
     effectivePlayerStats: playerStats,
