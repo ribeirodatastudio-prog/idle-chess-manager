@@ -75,9 +75,10 @@ const StatCard = ({ statKey, level, resources, onUpgrade }) => {
   );
 };
 
-export const StatsHeader = ({ resources, playerElo, tournamentIndex = 0, puzzleMultiplier = 1.0, tenureMultiplier = 1.0, instinctMultiplier = 1.0 }) => {
-  const baseIncome = calculatePassiveIncomePerMinute(tournamentIndex);
-  const totalIncome = baseIncome * puzzleMultiplier * tenureMultiplier * instinctMultiplier;
+export const StatsHeader = ({ resources, playerElo, tournamentIndex = 0, tiersCleared = 0, puzzleMultiplier = 1.0, tenureMultiplier = 1.0, instinctMultiplier = 1.0 }) => {
+  const rawBase = 1 + tournamentIndex;
+  const tierMultiplier = Math.pow(1.01, tiersCleared);
+  const totalIncome = rawBase * tierMultiplier * puzzleMultiplier * tenureMultiplier * instinctMultiplier;
 
   return (
     <div className="mb-6 grid grid-cols-2 gap-4">
@@ -91,11 +92,15 @@ export const StatsHeader = ({ resources, playerElo, tournamentIndex = 0, puzzleM
           </span>
 
           {/* Tooltip */}
-          <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-48 bg-gray-900 border border-gray-700 rounded-lg p-2 z-50 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-xl">
+          <div className="absolute top-full left-0 mt-2 w-48 bg-gray-900 border border-gray-700 rounded-lg p-2 z-50 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-xl">
              <div className="text-[10px] text-gray-400 font-mono space-y-1">
                  <div className="flex justify-between">
                      <span>Base:</span>
-                     <span className="text-white">{formatNumber(baseIncome)}/min</span>
+                     <span className="text-white">{formatNumber(rawBase)}/min</span>
+                 </div>
+                 <div className="flex justify-between">
+                     <span>Tiers:</span>
+                     <span className="text-purple-400">x{tierMultiplier.toFixed(2)}</span>
                  </div>
                  <div className="flex justify-between">
                      <span>Puzzles:</span>
