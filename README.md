@@ -9,9 +9,16 @@ This section documents the exact formulas used in the game's code.
 ### 1. Game Economy
 
 *   **Passive Income (Study Time):**
-    *   **Formula:** `((1 + TotalWins) * (1.05 ^ TotalWins)) / 60` per second.
-    *   **Source:** The `TotalWins` count is the sum of tournament indices reached across all game modes (Cumulative Economy).
+    *   **Formula:** `((1 + TotalTournamentWins) * (1.01 ^ TotalTiersCleared)) / 60` per second.
+    *   **Components:**
+        *   `TotalTournamentWins`: Sum of Tournament Indices reached across all game modes.
+        *   `TotalTiersCleared`: Sum of cumulative Tiers cleared across all game modes (including those in completed tournaments).
+    *   **Multipliers:** Puzzle Multiplier (1.01^PuzzlesSolved) is applied on top of this base rate.
     *   **Usage:** Study Time is the primary currency for upgrading stats.
+
+*   **Match Rewards:**
+    *   **Standard Match Win:** Grants **1 minute** worth of current production.
+    *   **Tier Clear (Match 3):** Grants **1 minute** (Standard) + **10 minutes** (Bonus) = 11 minutes worth of current production.
 
 *   **Upgrade Costs:**
     *   **Base Formula:** `1 * (1.1 ^ (Level - 1))`.
