@@ -184,7 +184,11 @@ export const ArenaPanel = memo(({
             </div>
             
             <div className="flex justify-center py-2">
-               <ChessBoardVisualizer phase={phase} />
+               <ChessBoardVisualizer
+                  phase={phase}
+                  moveNumber={moveNumber}
+                  evaluation={evalBar}
+               />
             </div>
           </div>
         )}
