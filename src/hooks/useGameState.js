@@ -100,12 +100,18 @@ export const useGameState = () => {
 
           // Calculate Rate (Cumulative)
           const getIdx = (r) => (typeof r === 'object' ? r.tournamentIndex : 0);
+          const getTiers = (r) => (typeof r === 'object' ? (r.tournamentIndex * TIERS_PER_TOURNAMENT + r.tierIndex) : 0);
+
           let cumulativeIdx = 0;
+          let cumulativeTiers = 0;
           GAME_MODES.forEach(m => {
-              if (ranks[m.id]) cumulativeIdx += getIdx(ranks[m.id]);
+              if (ranks[m.id]) {
+                  cumulativeIdx += getIdx(ranks[m.id]);
+                  cumulativeTiers += getTiers(ranks[m.id]);
+              }
           });
 
-          return calculatePassiveIncomePerSecond(cumulativeIdx) * multiplier;
+          return calculatePassiveIncomePerSecond(cumulativeIdx, cumulativeTiers) * multiplier;
       }
       return 0;
   }, []);
@@ -296,9 +302,12 @@ export const useGameState = () => {
 
             // Calculate Cumulative Tournament Index
             const getIdx = (r) => (typeof r === 'object' ? r.tournamentIndex : 0);
-            const cumulativeIdx = GAME_MODES.reduce((sum, m) => sum + getIdx(currentRanks[m.id]), 0);
+            const getTiers = (r) => (typeof r === 'object' ? (r.tournamentIndex * TIERS_PER_TOURNAMENT + r.tierIndex) : 0);
 
-            let income = calculatePassiveIncomePerSecond(cumulativeIdx);
+            const cumulativeIdx = GAME_MODES.reduce((sum, m) => sum + getIdx(currentRanks[m.id]), 0);
+            const cumulativeTiers = GAME_MODES.reduce((sum, m) => sum + getTiers(currentRanks[m.id]), 0);
+
+            let income = calculatePassiveIncomePerSecond(cumulativeIdx, cumulativeTiers);
 
             // Apply Puzzle Multiplier
             if (currentPuzzleStats && currentPuzzleStats.multiplier) {
@@ -316,9 +325,6 @@ export const useGameState = () => {
   }, [isOfflineLoading, offlineReport]);
 
   // Visibility / Tab Switch Handler
-  // Note: We removed the checkProgress call here to allow "Seamless" background simulation.
-  // The main loop now uses delta-time, so when the tab becomes visible and the loop resumes,
-  // it will automatically catch up on the missing time without triggering the "Offline Report".
   useEffect(() => {
       const handleVisibilityChange = () => {
           if (document.visibilityState === 'visible') {
@@ -390,29 +396,31 @@ export const useGameState = () => {
               // Check for Tier Clear (Match 0, 1, 2 -> Clear if matchIndex + 1 == 3)
               const isTierClear = (currentRank.matchIndex + 1) === MATCHES_PER_TIER;
 
-              if (isTierClear) {
-                  // Calculate Income based on Cumulative Tournament Index
-                  const getIdx = (r) => (typeof r === 'object' ? r.tournamentIndex : 0);
-                  const cumulativeIdx = GAME_MODES.reduce((sum, m) => sum + getIdx(prev.ranks[m.id]), 0);
-                  let currentIncome = calculatePassiveIncomePerSecond(cumulativeIdx);
+              // Calculate Income for Prize
+              const getIdx = (r) => (typeof r === 'object' ? r.tournamentIndex : 0);
+              const getTiers = (r) => (typeof r === 'object' ? (r.tournamentIndex * TIERS_PER_TOURNAMENT + r.tierIndex) : 0);
 
-                  // Apply Puzzle Multiplier to Prize too? Prompt said "Study Time Production Loop".
-                  // Usually prizes are based on income rate, so it makes sense.
-                  const pStats = stateRef.current.puzzleStats;
-                  if (pStats && pStats.multiplier) {
-                      currentIncome *= pStats.multiplier;
-                  }
+              const cumulativeIdx = GAME_MODES.reduce((sum, m) => sum + getIdx(prev.ranks[m.id]), 0);
+              const cumulativeTiers = GAME_MODES.reduce((sum, m) => sum + getTiers(prev.ranks[m.id]), 0);
 
-                  // Determine prize
-                  let prizeSeconds = 600;
-                  // REMOVED book_worm logic
+              let currentIncome = calculatePassiveIncomePerSecond(cumulativeIdx, cumulativeTiers);
 
-                  // Award Prize
-                  setResources(res => ({
-                      ...res,
-                      studyTime: res.studyTime + (currentIncome * prizeSeconds)
-                  }));
+              const pStats = stateRef.current.puzzleStats;
+              if (pStats && pStats.multiplier) {
+                  currentIncome *= pStats.multiplier;
               }
+
+              // Determine prize
+              let prizeSeconds = 60; // Base Match Win (1 minute)
+              if (isTierClear) {
+                  prizeSeconds += 600; // Tier Clear Bonus (10 minutes)
+              }
+
+              // Award Prize
+              setResources(res => ({
+                  ...res,
+                  studyTime: res.studyTime + (currentIncome * prizeSeconds)
+              }));
 
               // Progression Logic
               let newMatch = currentRank.matchIndex + 1;
@@ -470,8 +478,12 @@ export const useGameState = () => {
   const triggerSacrificeBonus = useCallback(() => {
       const currentRanks = stateRef.current.tournament.ranks;
       const getIdx = (r) => (typeof r === 'object' ? r.tournamentIndex : 0);
+      const getTiers = (r) => (typeof r === 'object' ? (r.tournamentIndex * TIERS_PER_TOURNAMENT + r.tierIndex) : 0);
+
       const cumulativeIdx = GAME_MODES.reduce((sum, m) => sum + getIdx(currentRanks[m.id]), 0);
-      let income = calculatePassiveIncomePerSecond(cumulativeIdx);
+      const cumulativeTiers = GAME_MODES.reduce((sum, m) => sum + getTiers(currentRanks[m.id]), 0);
+
+      let income = calculatePassiveIncomePerSecond(cumulativeIdx, cumulativeTiers);
 
       const pStats = stateRef.current.puzzleStats;
       if (pStats && pStats.multiplier) {

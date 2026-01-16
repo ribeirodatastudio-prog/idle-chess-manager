@@ -1,15 +1,16 @@
 export const STATS = ['opening', 'midgame', 'endgame', 'tactics', 'sacrifices', 'defense'];
 
-export const calculatePassiveIncomePerMinute = (tournamentIndex) => {
-  // Base Rate: 1 + tournamentIndex (Per Minute).
-  // Multiplier: Math.pow(1.05, tournamentIndex)
-  const baseRate = 1 + tournamentIndex;
-  const multiplier = Math.pow(1.05, tournamentIndex);
+export const calculatePassiveIncomePerMinute = (tournamentWins, tiersCleared = 0) => {
+  // Base Rate: 1 + tournamentWins (Per Minute).
+  // Multiplier: 1.01 ^ tiersCleared
+  // Note: tiersCleared includes tiers from completed tournaments (cumulative)
+  const baseRate = 1 + tournamentWins;
+  const multiplier = Math.pow(1.01, tiersCleared);
   return baseRate * multiplier;
 };
 
-export const calculatePassiveIncomePerSecond = (tournamentIndex) => {
-  const perMinute = calculatePassiveIncomePerMinute(tournamentIndex);
+export const calculatePassiveIncomePerSecond = (tournamentWins, tiersCleared = 0) => {
+  const perMinute = calculatePassiveIncomePerMinute(tournamentWins, tiersCleared);
   return perMinute / 60;
 };
 
