@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useGameState } from './hooks/useGameState';
-import { generateOpponentStats, calculateMove, PHASES } from './logic/simulation';
+import { generateOpponentStats, calculateMove, PHASES, getPhaseConfig } from './logic/simulation';
 import { StatsPanel, StatsHeader } from './components/StatsPanel';
 import { ArenaPanel } from './components/ArenaPanel';
 import { LogsPanel } from './components/LogsPanel';
@@ -76,6 +76,7 @@ function App() {
         }
 
         const nextMove = currentSimState.moveNumber + 1;
+        const phaseConfig = getPhaseConfig(state.skills);
         
         // Calculate the move result
         const moveResult = calculateMove(
@@ -87,7 +88,8 @@ function App() {
           currentSimState.phase1Won,
           currentSimState.move11Eval,
           state.tournament.activeMode, // Pass the active mode
-          currentSimState.sacrificesCount // Pass sacrifice count
+          currentSimState.sacrificesCount, // Pass sacrifice count
+          phaseConfig
         );
         
         // Construct Log Message
@@ -103,14 +105,14 @@ function App() {
         let nextMove11Eval = currentSimState.move11Eval;
         
         // Logic Triggers for Skill Conditions
-        // Check Phase 1 Win (At Move 10)
-        if (nextMove === 10) {
+        // Check Phase 1 Win (At Opening End)
+        if (nextMove === phaseConfig.openingEnd) {
             if (moveResult.newEval > 0) {
                 nextPhase1Won = true;
             }
         }
-        // Capture Move 11 Eval for Counter-Play
-        if (nextMove === 11) {
+        // Capture Move 11 Eval for Counter-Play (Start of Midgame)
+        if (nextMove === (phaseConfig.openingEnd + 1)) {
             nextMove11Eval = moveResult.newEval;
         }
 

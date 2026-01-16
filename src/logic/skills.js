@@ -124,6 +124,42 @@ export const SKILLS = [
     maxLevel: 5,
     isHidden: true
   },
+  {
+    id: 'op_extender',
+    name: 'Opening Extender',
+    description: 'Extends Opening phase by 1 move per level.',
+    cost: 0,
+    spCost: 10,
+    costType: 'SP',
+    category: 'Phase Mastery',
+    parentId: 'study_opening',
+    maxLevel: 3,
+    isHidden: true
+  },
+  {
+    id: 'op_caro',
+    name: 'The Caro-Kann',
+    description: 'Start the game with +0.1 Eval per level.',
+    cost: 0,
+    spCost: 10,
+    costType: 'SP',
+    category: 'Phase Mastery',
+    parentId: 'study_opening',
+    maxLevel: 3,
+    isHidden: true
+  },
+  {
+    id: 'op_gambit',
+    name: 'Opening Gambit',
+    description: 'Guaranteed Sacrifice attempt on Turn 5. (Does not consume Max Sacrifice cap).',
+    cost: 0,
+    spCost: 10,
+    costType: 'SP',
+    category: 'Phase Mastery',
+    parentId: 'study_opening',
+    maxLevel: 1,
+    isHidden: true
+  },
   // Tier 2: Midgame Tree
   {
     id: 'mid_def_master',
@@ -161,6 +197,42 @@ export const SKILLS = [
     maxLevel: 5,
     isHidden: true
   },
+  {
+    id: 'mid_extender',
+    name: 'Midgame Extender',
+    description: 'Extends Midgame phase by 1 move per level.',
+    cost: 0,
+    spCost: 10,
+    costType: 'SP',
+    category: 'Phase Mastery',
+    parentId: 'study_midgame',
+    maxLevel: 3,
+    isHidden: true
+  },
+  {
+    id: 'mid_boost',
+    name: 'Positional Mastery',
+    description: 'Instantly gain +0.1 Eval when Midgame starts per level.',
+    cost: 0,
+    spCost: 10,
+    costType: 'SP',
+    category: 'Phase Mastery',
+    parentId: 'study_midgame',
+    maxLevel: 3,
+    isHidden: true
+  },
+  {
+    id: 'mid_gambit',
+    name: 'Midgame Complication',
+    description: 'Guaranteed Sacrifice attempt on Turn 25. (Does not consume Max Sacrifice cap).',
+    cost: 0,
+    spCost: 10,
+    costType: 'SP',
+    category: 'Phase Mastery',
+    parentId: 'study_midgame',
+    maxLevel: 1,
+    isHidden: true
+  },
   // Tier 2: Endgame Tree
   {
     id: 'end_def_master',
@@ -196,6 +268,42 @@ export const SKILLS = [
     category: 'Phase Mastery',
     parentId: 'study_endgame',
     maxLevel: 5,
+    isHidden: true
+  },
+  {
+    id: 'end_extender',
+    name: 'Endgame Extender',
+    description: 'Extends TOTAL Game Duration by 1 move per level (Max 53 turns).',
+    cost: 0,
+    spCost: 10,
+    costType: 'SP',
+    category: 'Phase Mastery',
+    parentId: 'study_endgame',
+    maxLevel: 3,
+    isHidden: true
+  },
+  {
+    id: 'end_boost',
+    name: 'Conversion Technique',
+    description: 'Instantly gain +0.1 Eval when Endgame starts per level.',
+    cost: 0,
+    spCost: 10,
+    costType: 'SP',
+    category: 'Phase Mastery',
+    parentId: 'study_endgame',
+    maxLevel: 3,
+    isHidden: true
+  },
+  {
+    id: 'end_gambit',
+    name: 'The Breakthrough',
+    description: 'Guaranteed Sacrifice attempt on Turn 35. (Does not consume Max Sacrifice cap).',
+    cost: 0,
+    spCost: 10,
+    costType: 'SP',
+    category: 'Phase Mastery',
+    parentId: 'study_endgame',
+    maxLevel: 1,
     isHidden: true
   },
   // Path B: Instinct Focus
