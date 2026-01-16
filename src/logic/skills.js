@@ -232,6 +232,117 @@ export const SKILLS = [
     group: 'instinct_path',
     isHidden: true
   },
+  // Tier 2: Instinct Tactics Tree
+  {
+    id: 'inst_tac_op',
+    name: 'Opening Sharpness',
+    description: '+1% Tactics per level during Opening',
+    cost: 0,
+    spCost: 1,
+    costType: 'SP',
+    category: 'Instinct Focus',
+    parentId: 'instinct_tactics',
+    maxLevel: 5,
+    isHidden: true
+  },
+  {
+    id: 'inst_tac_mid',
+    name: 'Midgame Combinations',
+    description: '+1% Tactics per level during Midgame',
+    cost: 0,
+    spCost: 1,
+    costType: 'SP',
+    category: 'Instinct Focus',
+    parentId: 'instinct_tactics',
+    maxLevel: 5,
+    isHidden: true
+  },
+  {
+    id: 'inst_tac_end',
+    name: 'Endgame Precision',
+    description: '+1% Tactics per level during Endgame',
+    cost: 0,
+    spCost: 1,
+    costType: 'SP',
+    category: 'Instinct Focus',
+    parentId: 'instinct_tactics',
+    maxLevel: 5,
+    isHidden: true
+  },
+  // Tier 2: Instinct Defense Tree
+  {
+    id: 'inst_def_op',
+    name: 'Solid Opening',
+    description: '+1% Defense per level during Opening',
+    cost: 0,
+    spCost: 1,
+    costType: 'SP',
+    category: 'Instinct Focus',
+    parentId: 'instinct_defense',
+    maxLevel: 5,
+    isHidden: true
+  },
+  {
+    id: 'inst_def_mid',
+    name: 'Resilient Midgame',
+    description: '+1% Defense per level during Midgame',
+    cost: 0,
+    spCost: 1,
+    costType: 'SP',
+    category: 'Instinct Focus',
+    parentId: 'instinct_defense',
+    maxLevel: 5,
+    isHidden: true
+  },
+  {
+    id: 'inst_def_end',
+    name: 'Endgame Wall',
+    description: '+1% Defense per level during Endgame',
+    cost: 0,
+    spCost: 1,
+    costType: 'SP',
+    category: 'Instinct Focus',
+    parentId: 'instinct_defense',
+    maxLevel: 5,
+    isHidden: true
+  },
+  // Tier 2: Instinct Risk Tree
+  {
+    id: 'inst_sac_op',
+    name: 'Early Gambits',
+    description: '+1% Flat Sacrifice Chance per level during Opening',
+    cost: 0,
+    spCost: 1,
+    costType: 'SP',
+    category: 'Instinct Focus',
+    parentId: 'instinct_risk',
+    maxLevel: 5,
+    isHidden: true
+  },
+  {
+    id: 'inst_sac_mid',
+    name: 'Middle Attack',
+    description: '+1% Flat Sacrifice Chance per level during Midgame',
+    cost: 0,
+    spCost: 1,
+    costType: 'SP',
+    category: 'Instinct Focus',
+    parentId: 'instinct_risk',
+    maxLevel: 5,
+    isHidden: true
+  },
+  {
+    id: 'inst_sac_end',
+    name: 'Final Desperation',
+    description: '+1% Flat Sacrifice Chance per level during Endgame',
+    cost: 0,
+    spCost: 1,
+    costType: 'SP',
+    category: 'Instinct Focus',
+    parentId: 'instinct_risk',
+    maxLevel: 5,
+    isHidden: true
+  },
   // Standalone
   {
     id: 'chaos_theory',
