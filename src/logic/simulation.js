@@ -203,10 +203,24 @@ export const generateOpponentStats = (rankData) => {
   };
 };
 
+const getSkillLevel = (skills, id) => {
+    const val = skills[id];
+    if (typeof val === 'number') return val;
+    return val ? 1 : 0;
+};
+
 export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, currentEval, skills = {}, phase1Won = false, move11Eval = 0, mode = 'rapid', sacrificesCount = 0) => {
   // --- PREPARATION & WEIGHTS ---
   const playerStats = applyModeWeights(rawPlayerStats, mode);
   const enemyStats = applyModeWeights(rawEnemyStats, mode);
+
+  // --- SKILL MODIFIERS (STATS) ---
+  if (skills.study_opening) playerStats.opening *= 1.1;
+  if (skills.study_midgame) playerStats.midgame *= 1.1;
+  if (skills.study_endgame) playerStats.endgame *= 1.1;
+
+  if (skills.instinct_tactics) playerStats.tactics *= 1.1;
+  if (skills.instinct_defense) playerStats.defense *= 1.1;
 
   // Chess 960: Dynamic Tactics
   if (mode === 'chess960') {
@@ -232,6 +246,13 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
   if (moveNumber <= PHASES.OPENING.end) {
     phase = PHASES.OPENING.name;
     
+    // Phase Mastery Modifiers
+    const defLvl = getSkillLevel(skills, 'op_def_master');
+    const tacLvl = getSkillLevel(skills, 'op_tac_master');
+
+    if (defLvl > 0) playerStats.defense *= (1 + (0.1 * defLvl));
+    if (tacLvl > 0) playerStats.tactics *= (1 + (0.1 * tacLvl));
+
     // Stats
     playerBaseSum = playerStats.opening + (playerStats.tactics * 0.2);
     enemyBaseSum = enemyStats.opening + (enemyStats.tactics * 0.2);
@@ -247,6 +268,13 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
   } else if (moveNumber <= PHASES.MIDGAME.end) {
     phase = PHASES.MIDGAME.name;
     
+    // Phase Mastery Modifiers
+    const defLvl = getSkillLevel(skills, 'mid_def_master');
+    const tacLvl = getSkillLevel(skills, 'mid_tac_master');
+
+    if (defLvl > 0) playerStats.defense *= (1 + (0.1 * defLvl));
+    if (tacLvl > 0) playerStats.tactics *= (1 + (0.1 * tacLvl));
+
     // Stats
     playerBaseSum = playerStats.midgame + (playerStats.tactics * 0.8);
     enemyBaseSum = enemyStats.midgame + (enemyStats.tactics * 0.8);
@@ -261,6 +289,13 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
 
   } else {
     phase = PHASES.ENDGAME.name;
+
+    // Phase Mastery Modifiers
+    const defLvl = getSkillLevel(skills, 'end_def_master');
+    const tacLvl = getSkillLevel(skills, 'end_tac_master');
+
+    if (defLvl > 0) playerStats.defense *= (1 + (0.1 * defLvl));
+    if (tacLvl > 0) playerStats.tactics *= (1 + (0.1 * tacLvl));
     
     // Stats
     playerBaseSum = playerStats.endgame + (playerStats.tactics * 1.5);
@@ -382,6 +417,22 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
   } else if (mode === 'chess960') {
       sacrificeChance = 0.01;
       maxSacrifices = 1;
+  }
+
+  // --- SKILL MODIFIERS (SACRIFICE CHANCE) ---
+  if (skills.instinct_risk) sacrificeChance *= 1.1;
+  if (skills.chaos_theory) sacrificeChance *= 2.0;
+
+  // Phase Mastery Sacrifice Modifiers
+  if (moveNumber <= PHASES.OPENING.end) {
+      const sacLvl = getSkillLevel(skills, 'op_sac_master');
+      if (sacLvl > 0) sacrificeChance += (0.01 * sacLvl);
+  } else if (moveNumber <= PHASES.MIDGAME.end) {
+      const sacLvl = getSkillLevel(skills, 'mid_sac_master');
+      if (sacLvl > 0) sacrificeChance += (0.01 * sacLvl);
+  } else {
+      const sacLvl = getSkillLevel(skills, 'end_sac_master');
+      if (sacLvl > 0) sacrificeChance += (0.01 * sacLvl);
   }
 
   if (moveNumber > 5 && sacrificesCount < maxSacrifices) {

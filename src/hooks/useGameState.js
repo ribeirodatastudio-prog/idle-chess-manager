@@ -10,7 +10,8 @@ import { calculatePuzzleDifficulty, resolvePuzzle } from '../logic/puzzles';
 const STORAGE_KEY = 'chess-career-save-v2';
 
 const INITIAL_RESOURCES = {
-  studyTime: 0
+  studyTime: 0,
+  studyPoints: 0
 };
 
 const INITIAL_STATS = {
@@ -370,13 +371,59 @@ export const useGameState = () => {
 
   const purchaseSkill = useCallback((skillId) => {
       const skill = getSkillById(skillId);
-      if (skill && !skills[skillId] && availableAbilityPoints >= skill.cost) {
-          setSkills(prev => ({
-              ...prev,
-              [skillId]: true
-          }));
+      // Access latest state via ref to avoid dependency on frequently changing resources
+      const currentSkills = stateRef.current.skills;
+      const currentResources = stateRef.current.resources;
+
+      if (!skill || currentSkills[skillId]) return;
+
+      // Exclusivity Check
+      if (skill.group) {
+          const hasConflict = Object.keys(currentSkills).some(ownedId => {
+              if (!currentSkills[ownedId]) return false;
+              const ownedSkill = getSkillById(ownedId);
+              // Only block if conflict exists AND it's not the same skill (allow upgrades if applicable)
+              return ownedSkill && ownedSkill.group === skill.group && ownedSkill.id !== skillId;
+          });
+          if (hasConflict) return;
       }
-  }, [skills, availableAbilityPoints]);
+
+      // Requirement Check (Parent Skill)
+      if (skill.parentId) {
+          const parentOwned = currentSkills[skill.parentId];
+          // Parent must be owned (true or level >= 1)
+          if (!parentOwned) return;
+      }
+
+      // Handle Leveling Logic
+      const currentLevel = typeof currentSkills[skillId] === 'number'
+          ? currentSkills[skillId]
+          : (currentSkills[skillId] ? 1 : 0);
+
+      const maxLevel = skill.maxLevel || 1;
+
+      if (currentLevel >= maxLevel) return;
+
+      if (skill.costType === 'SP') {
+          const spCost = skill.spCost || 0;
+          const currentSP = currentResources.studyPoints || 0;
+
+          if (currentSP >= spCost) {
+              // Increment Level
+              const newLevel = currentLevel + 1;
+              setSkills(prev => ({ ...prev, [skillId]: newLevel }));
+              setResources(prev => ({ ...prev, studyPoints: (prev.studyPoints || 0) - spCost }));
+          }
+      } else {
+          // AP Logic
+          if (availableAbilityPoints >= skill.cost) {
+              setSkills(prev => ({
+                  ...prev,
+                  [skillId]: true
+              }));
+          }
+      }
+  }, [availableAbilityPoints]);
 
   const startTournament = useCallback((opponentStats, mode) => {
       setTournament(prev => ({
@@ -412,14 +459,18 @@ export const useGameState = () => {
 
               // Determine prize
               let prizeSeconds = 60; // Base Match Win (1 minute)
+              let spAward = 0;
+
               if (isTierClear) {
                   prizeSeconds += 600; // Tier Clear Bonus (10 minutes)
+                  spAward = 1;
               }
 
               // Award Prize
               setResources(res => ({
                   ...res,
-                  studyTime: res.studyTime + (currentIncome * prizeSeconds)
+                  studyTime: res.studyTime + (currentIncome * prizeSeconds),
+                  studyPoints: (res.studyPoints || 0) + spAward
               }));
 
               // Progression Logic
@@ -601,7 +652,8 @@ export const useGameState = () => {
       availableAbilityPoints,
       totalAbilityPoints,
       totalWins,
-      cumulativeTournamentIndex // Export for UI
+      cumulativeTournamentIndex, // Export for UI
+      studyPoints: resources.studyPoints || 0
   };
 
   const state = {
