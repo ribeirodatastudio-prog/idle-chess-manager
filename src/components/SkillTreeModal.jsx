@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { SKILLS, getSkillById } from '../logic/skills';
-import { Sword, Shield, Skull, Lock, CheckCircle2 } from 'lucide-react';
+import { SKILLS, getSkillById, getBranchTierStatus, calculateTenureMultiplier } from '../logic/skills';
+import { Sword, Shield, Skull, Lock, CheckCircle2, Trophy, Clock } from 'lucide-react';
 
 const getBonusText = (skill, level) => {
     if (level === 0) return null;
@@ -9,16 +9,32 @@ const getBonusText = (skill, level) => {
     // Instinct Tactics/Defense Sub-skills
     if (skill.id.includes('inst_')) return `+${level}%`;
     // Phase Mastery (Study) Sub-skills
+    // Check specific new Tier 3
+    if (skill.id.includes('novelty') || skill.id.includes('cloud') || skill.id.includes('tablebase')) return `-${level * 3}% Enemy`;
+    if (skill.id.includes('space') || skill.id.includes('simplify')) return `+${level * 4}% All`;
+    if (skill.id.includes('zugzwang')) return `-${level}%/Turn`;
+
     if (skill.category === 'Phase Mastery') return `+${level * 10}%`;
     return null;
 };
 
-const TreeColumn = ({ title, parentId, skills, ownedSkills, availableSP, onPurchase, locked }) => {
+const TreeColumn = ({ title, parentId, skills, ownedSkills, availableSP, onPurchase, locked, branch }) => {
     const parentSkill = getSkillById(parentId);
     const parentOwned = !!ownedSkills[parentId];
 
     // Parent Bonus (Fixed 10% for these roots)
     const parentBonus = parentOwned ? "+10%" : null;
+
+    // Get Tier Status
+    // For Instinct Focus, we might not use getBranchTierStatus (logic is simpler or nonexistent for Tier 3 there)
+    // But existing code passes 'skills' as a flat list.
+    // We need to separate them by Tier.
+
+    const tier1 = skills.filter(s => s.tier === 1 || !s.tier); // Default to Tier 1 if undefined (Instinct)
+    const tier2 = skills.filter(s => s.tier === 2);
+    const tier3 = skills.filter(s => s.tier === 3);
+
+    const { tier2Unlocked, tier3Unlocked } = branch ? getBranchTierStatus(branch, ownedSkills) : { tier2Unlocked: true, tier3Unlocked: true };
 
     if (locked) {
         return (
@@ -27,7 +43,7 @@ const TreeColumn = ({ title, parentId, skills, ownedSkills, availableSP, onPurch
                 <ParentNode skill={parentSkill} owned={false} />
                 <div className="h-8 w-0.5 bg-gray-700 my-2"></div>
                 <div className="flex gap-2">
-                     {skills.map(s => <ChildNode key={s.id} skill={s} locked={true} />)}
+                     {tier1.map(s => <ChildNode key={s.id} skill={s} locked={true} />)}
                 </div>
             </div>
         );
@@ -37,6 +53,7 @@ const TreeColumn = ({ title, parentId, skills, ownedSkills, availableSP, onPurch
         <div className="flex flex-col items-center">
             <div className="text-gray-400 font-bold mb-2 uppercase tracking-wider text-xs">{title}</div>
 
+            {/* TIER 0 (ROOT) */}
             <ParentNode
                 skill={parentSkill}
                 owned={parentOwned}
@@ -48,8 +65,9 @@ const TreeColumn = ({ title, parentId, skills, ownedSkills, availableSP, onPurch
 
             <div className={`h-8 w-0.5 my-2 transition-colors ${parentOwned ? 'bg-purple-500' : 'bg-gray-700'}`}></div>
 
+            {/* TIER 1 */}
             <div className="flex gap-2">
-                {skills.map(skill => {
+                {tier1.map(skill => {
                     const level = typeof ownedSkills[skill.id] === 'number'
                                   ? ownedSkills[skill.id]
                                   : (ownedSkills[skill.id] ? 1 : 0);
@@ -71,6 +89,90 @@ const TreeColumn = ({ title, parentId, skills, ownedSkills, availableSP, onPurch
                     );
                 })}
             </div>
+
+            {/* TIER 2 SECTION (Only if Tier 2 skills exist) */}
+            {tier2.length > 0 && (
+                <>
+                    <div className="relative h-12 w-full flex justify-center items-center">
+                        <div className={`absolute top-0 bottom-0 w-0.5 ${tier2Unlocked ? 'bg-purple-500' : 'bg-gray-700'}`}></div>
+                         {!tier2Unlocked && (
+                             <div className="absolute z-10 bg-gray-800 p-1.5 rounded-full border border-gray-600 group">
+                                 <Lock size={14} className="text-gray-400" />
+                                 <div className="absolute bottom-full mb-2 hidden group-hover:block z-50 w-32 bg-black border border-gray-700 p-2 rounded text-[10px] text-center">
+                                     Unlock: 5 Total Levels in Tier 1
+                                 </div>
+                             </div>
+                         )}
+                    </div>
+
+                    <div className="flex gap-2">
+                        {tier2.map(skill => {
+                            const level = typeof ownedSkills[skill.id] === 'number'
+                                          ? ownedSkills[skill.id]
+                                          : (ownedSkills[skill.id] ? 1 : 0);
+                            const isMaxed = level >= skill.maxLevel;
+                            const canAfford = availableSP >= skill.spCost;
+                            const bonusText = getBonusText(skill, level);
+
+                            return (
+                                <ChildNode
+                                    key={skill.id}
+                                    skill={skill}
+                                    level={level}
+                                    locked={!tier2Unlocked}
+                                    canAfford={canAfford}
+                                    isMaxed={isMaxed}
+                                    onPurchase={onPurchase}
+                                    bonusText={bonusText}
+                                />
+                            );
+                        })}
+                    </div>
+                </>
+            )}
+
+            {/* TIER 3 SECTION (Only if Tier 3 skills exist) */}
+            {tier3.length > 0 && (
+                <>
+                    <div className="relative h-12 w-full flex justify-center items-center">
+                        <div className={`absolute top-0 bottom-0 w-0.5 ${tier3Unlocked ? 'bg-purple-500' : 'bg-gray-700'}`}></div>
+                         {!tier3Unlocked && (
+                             <div className="absolute z-10 bg-gray-800 p-1.5 rounded-full border border-gray-600 group">
+                                 <Lock size={14} className="text-gray-400" />
+                                 <div className="absolute bottom-full mb-2 hidden group-hover:block z-50 w-32 bg-black border border-gray-700 p-2 rounded text-[10px] text-center">
+                                     Unlock: 1 Total Level in Tier 2
+                                 </div>
+                             </div>
+                         )}
+                    </div>
+
+                    <div className="flex gap-2">
+                        {tier3.map(skill => {
+                            const level = typeof ownedSkills[skill.id] === 'number'
+                                          ? ownedSkills[skill.id]
+                                          : (ownedSkills[skill.id] ? 1 : 0);
+                            const isMaxed = level >= skill.maxLevel;
+                            const canAfford = availableSP >= skill.spCost;
+                            const bonusText = getBonusText(skill, level);
+
+                            return (
+                                <ChildNode
+                                    key={skill.id}
+                                    skill={skill}
+                                    level={level}
+                                    locked={!tier3Unlocked}
+                                    canAfford={canAfford}
+                                    isMaxed={isMaxed}
+                                    onPurchase={onPurchase}
+                                    bonusText={bonusText}
+                                    highlight={true}
+                                />
+                            );
+                        })}
+                    </div>
+                </>
+            )}
+
         </div>
     );
 };
@@ -115,10 +217,13 @@ const ParentNode = ({ skill, owned, canAfford, onPurchase, icon, bonusText }) =>
     );
 };
 
-const ChildNode = ({ skill, level, locked, canAfford, isMaxed, onPurchase, bonusText }) => {
+const ChildNode = ({ skill, level, locked, canAfford, isMaxed, onPurchase, bonusText, highlight }) => {
     let Icon = Sword;
     if (skill.id.includes('def')) Icon = Shield;
     if (skill.id.includes('sac')) Icon = Skull;
+    if (skill.id.includes('extender')) Icon = Clock;
+    if (skill.id.includes('boost') || skill.id.includes('caro')) Icon = Trophy;
+    if (skill.tier === 3) Icon = Trophy; // Grandmaster Skills
 
     return (
         <button
@@ -126,6 +231,7 @@ const ChildNode = ({ skill, level, locked, canAfford, isMaxed, onPurchase, bonus
             disabled={locked || isMaxed || !canAfford}
             title={skill.description}
             className={`w-16 h-20 rounded-lg border flex flex-col items-center justify-center gap-1 transition-all relative group
+                ${highlight && !locked ? 'shadow-[0_0_10px_rgba(168,85,247,0.2)]' : ''}
                 ${locked
                     ? 'bg-gray-900 border-gray-800 text-gray-700 cursor-not-allowed'
                     : isMaxed
@@ -192,6 +298,9 @@ export const SkillTreeModal = ({ isOpen, onClose, skills, derivedStats, onPurcha
     const lockInstinctDefense = hasInstinctTactics || hasInstinctRisk;
     const lockInstinctRisk = hasInstinctTactics || hasInstinctDefense;
 
+    // Calculate Tenure Multiplier
+    const tenureMult = calculateTenureMultiplier(skills);
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
             <div className="bg-[#1E1E24] w-full max-w-5xl rounded-2xl border border-gray-700 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
@@ -207,9 +316,19 @@ export const SkillTreeModal = ({ isOpen, onClose, skills, derivedStats, onPurcha
                                 Choose your specialized path. Paths within each category are mutually exclusive.
                             </p>
                         </div>
-                        <div className="text-right">
-                            <div className="text-xs text-gray-500 uppercase tracking-widest">Study Points</div>
-                            <div className="text-2xl font-mono font-bold text-blue-400">{studyPoints || 0}</div>
+                        <div className="text-right flex flex-col items-end gap-2">
+                            <div>
+                                <div className="text-xs text-gray-500 uppercase tracking-widest">Study Points</div>
+                                <div className="text-2xl font-mono font-bold text-blue-400">{studyPoints || 0}</div>
+                            </div>
+
+                            {/* Tenure Display */}
+                             <div className="bg-purple-900/30 border border-purple-500/30 px-3 py-1 rounded text-right">
+                                <div className="text-[10px] text-purple-300 uppercase tracking-wider font-bold">Academic Tenure</div>
+                                <div className="text-sm font-mono text-purple-100">
+                                    x{tenureMult.toFixed(2)} Production
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -251,6 +370,7 @@ export const SkillTreeModal = ({ isOpen, onClose, skills, derivedStats, onPurcha
                                 availableSP={studyPoints || 0}
                                 onPurchase={onPurchase}
                                 locked={lockOpening}
+                                branch="opening"
                             />
 
                             <TreeColumn
@@ -261,6 +381,7 @@ export const SkillTreeModal = ({ isOpen, onClose, skills, derivedStats, onPurcha
                                 availableSP={studyPoints || 0}
                                 onPurchase={onPurchase}
                                 locked={lockMidgame}
+                                branch="midgame"
                             />
 
                             <TreeColumn
@@ -271,6 +392,7 @@ export const SkillTreeModal = ({ isOpen, onClose, skills, derivedStats, onPurcha
                                 availableSP={studyPoints || 0}
                                 onPurchase={onPurchase}
                                 locked={lockEndgame}
+                                branch="endgame"
                             />
                         </div>
                     )}

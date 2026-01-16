@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { calculatePassiveIncomePerSecond, calculateUpgradeCost } from '../logic/math';
-import { getSkillById } from '../logic/skills';
+import { getSkillById, calculateTenureMultiplier } from '../logic/skills';
 import { TOURNAMENT_CONFIG, TIERS_PER_TOURNAMENT, MATCHES_PER_TIER } from '../logic/tournaments';
 import { GAME_MODES } from '../logic/gameModes';
 import { useOfflineProgress } from './useOfflineProgress';
@@ -113,9 +113,18 @@ export const useGameState = () => {
   const initialProductionRate = useMemo(() => {
       const saved = loadSave();
       let multiplier = 1.0;
+
+      // Puzzle Multiplier
       if (saved && saved.puzzleStats) {
-           multiplier = saved.puzzleStats.multiplier || 1.0;
+           multiplier *= (saved.puzzleStats.multiplier || 1.0);
       }
+
+      // Tenure Multiplier
+      let skills = {};
+      if (saved && saved.skills) {
+          skills = saved.skills;
+      }
+      multiplier *= calculateTenureMultiplier(skills);
 
       if (saved && saved.tournament) {
           // Migration logic to get ranks safe
@@ -361,6 +370,10 @@ export const useGameState = () => {
                 income *= currentPuzzleStats.multiplier;
             }
 
+            // Apply Tenure Multiplier
+            const currentSkills = stateRef.current.skills;
+            income *= calculateTenureMultiplier(currentSkills);
+
             return {
             ...prev,
             studyTime: prev.studyTime + (income * delta)
@@ -503,6 +516,10 @@ export const useGameState = () => {
                   currentIncome *= pStats.multiplier;
               }
 
+              // Apply Tenure Multiplier
+              const currentSkills = stateRef.current.skills;
+              currentIncome *= calculateTenureMultiplier(currentSkills);
+
               // Determine prize
               let prizeSeconds = 60; // Base Match Win (1 minute)
               let spAward = 0;
@@ -586,6 +603,10 @@ export const useGameState = () => {
       if (pStats && pStats.multiplier) {
           income *= pStats.multiplier;
       }
+
+      // Apply Tenure Multiplier
+      const currentSkills = stateRef.current.skills;
+      income *= calculateTenureMultiplier(currentSkills);
 
       const bonus = income * 600; // 10 minutes
       setResources(prev => ({

@@ -51,6 +51,7 @@ function App() {
       phase: 'Opening',
       result: null,
       phase1Won: false,
+      phase2Won: false,
       move11Eval: 0,
       sacrificesCount: 0,
       hasSacrificed: false // Deprecated but kept for safety
@@ -89,7 +90,8 @@ function App() {
           currentSimState.move11Eval,
           state.tournament.activeMode, // Pass the active mode
           currentSimState.sacrificesCount, // Pass sacrifice count
-          phaseConfig
+          phaseConfig,
+          currentSimState.phase2Won
         );
         
         // Construct Log Message
@@ -102,6 +104,7 @@ function App() {
         setLogs(prevLogs => [...prevLogs, { move: nextMove, message: moveResult.logMessage || logMsg }]);
         
         let nextPhase1Won = currentSimState.phase1Won;
+        let nextPhase2Won = currentSimState.phase2Won;
         let nextMove11Eval = currentSimState.move11Eval;
         
         // Logic Triggers for Skill Conditions
@@ -111,6 +114,13 @@ function App() {
                 nextPhase1Won = true;
             }
         }
+        // Check Phase 2 Win (At Midgame End)
+        if (nextMove === phaseConfig.midgameEnd) {
+             if (moveResult.newEval > 0) {
+                 nextPhase2Won = true;
+             }
+        }
+
         // Capture Move 11 Eval for Counter-Play (Start of Midgame)
         if (nextMove === (phaseConfig.openingEnd + 1)) {
             nextMove11Eval = moveResult.newEval;
@@ -132,6 +142,7 @@ function App() {
             phase: moveResult.phase,
             result: moveResult.result,
             phase1Won: nextPhase1Won,
+            phase2Won: nextPhase2Won,
             move11Eval: nextMove11Eval,
             sacrificesCount: moveResult.sacrificesCount,
             hasSacrificed: moveResult.hasSacrificed
@@ -143,6 +154,7 @@ function App() {
                 moveNumber: nextMove,
                 phase: moveResult.phase,
                 phase1Won: nextPhase1Won,
+                phase2Won: nextPhase2Won,
                 move11Eval: nextMove11Eval,
                 sacrificesCount: moveResult.sacrificesCount,
                 hasSacrificed: moveResult.hasSacrificed
