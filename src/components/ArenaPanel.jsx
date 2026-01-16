@@ -109,11 +109,11 @@ export const ArenaPanel = memo(({
       {/* Evaluation Bar */}
       <div className="mb-6 relative z-10 shrink-0 px-2">
         <div className="flex justify-between text-[10px] text-gray-500 mb-1 font-mono uppercase tracking-widest">
-          <span className="font-bold text-gray-400">Opponent</span>
+          <span className="font-bold text-emerald-500">Player</span>
           <span className={`font-bold ${clampedEval > 0 ? 'text-emerald-400' : clampedEval < 0 ? 'text-gray-400' : 'text-white'}`}>
             {clampedEval > 0 ? '+' : ''}{clampedEval.toFixed(2)}
           </span>
-          <span className="font-bold text-emerald-500">Player</span>
+          <span className="font-bold text-gray-400">Opponent</span>
         </div>
 
         {/* The Bar Container */}
@@ -124,10 +124,10 @@ export const ArenaPanel = memo(({
             className="absolute inset-0 transition-all duration-500 ease-out"
             style={{ 
               background: `linear-gradient(to right, 
-                #333333 0%,
-                #333333 ${100 - barPercentage}%,
-                #4CAF50 ${100 - barPercentage}%,
-                #4CAF50 100%)`
+                #4CAF50 0%,
+                #4CAF50 ${barPercentage}%,
+                #333333 ${barPercentage}%,
+                #333333 100%)`
              }}
           ></div>
 
@@ -137,7 +137,7 @@ export const ArenaPanel = memo(({
            {/* Slider Thumb / Split Line (at the boundary) */}
            <div 
              className="absolute top-0 bottom-0 w-1 bg-white shadow-[0_0_10px_white] transition-all duration-500 ease-out z-30 transform -translate-x-1/2"
-             style={{ left: `${100 - barPercentage}%` }}
+             style={{ left: `${barPercentage}%` }}
            ></div>
         </div>
       </div>
