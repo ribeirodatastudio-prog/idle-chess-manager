@@ -72,6 +72,32 @@ const getTotalWins = (ranks) => {
     return total;
 };
 
+// Helper to calculate total cleared tiers
+const calculateTotalTiersCleared = (ranks) => {
+    let total = 0;
+    GAME_MODES.forEach(modeObj => {
+        const r = ranks[modeObj.id];
+        if (typeof r === 'object') {
+             total += (r.tournamentIndex * TIERS_PER_TOURNAMENT) + r.tierIndex;
+        }
+    });
+    return total;
+};
+
+// Helper to calculate used SP
+const calculateUsedStudyPoints = (skills) => {
+    return Object.keys(skills).reduce((total, skillId) => {
+        const skill = getSkillById(skillId);
+        if (!skill) return total;
+
+        if (skill.costType === 'SP') {
+            const level = typeof skills[skillId] === 'number' ? skills[skillId] : (skills[skillId] ? 1 : 0);
+            return total + (skill.spCost * level);
+        }
+        return total;
+    }, 0);
+};
+
 export const useGameState = () => {
   // 1. Resources State
   const [resources, setResources] = useState(() => {
@@ -253,6 +279,26 @@ export const useGameState = () => {
       saveGame();
       // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stats, skills, totalWins, tournament.active, puzzleStats, activePuzzle]);
+
+  // Retroactive SP Check
+  useEffect(() => {
+      // Calculate expected total SP based on Tiers Cleared
+      const expectedSP = calculateTotalTiersCleared(tournament.ranks);
+
+      // Calculate current total SP (Available + Used)
+      const currentUsedSP = calculateUsedStudyPoints(skills);
+      const currentAvailableSP = resources.studyPoints || 0;
+      const currentTotalSP = currentAvailableSP + currentUsedSP;
+
+      // If we have less SP than we should, grant the difference
+      if (currentTotalSP < expectedSP) {
+          const diff = expectedSP - currentTotalSP;
+          setResources(prev => ({
+              ...prev,
+              studyPoints: (prev.studyPoints || 0) + diff
+          }));
+      }
+  }, [tournament.ranks, skills, resources.studyPoints]);
 
   // Derived Stats
   const playerElo = useMemo(() => {

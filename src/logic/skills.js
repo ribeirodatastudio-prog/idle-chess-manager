@@ -207,7 +207,8 @@ export const SKILLS = [
     spCost: 1,
     costType: 'SP',
     category: 'Instinct Focus',
-    group: 'instinct_path'
+    group: 'instinct_path',
+    isHidden: true
   },
   {
     id: 'instinct_defense',
@@ -217,7 +218,8 @@ export const SKILLS = [
     spCost: 1,
     costType: 'SP',
     category: 'Instinct Focus',
-    group: 'instinct_path'
+    group: 'instinct_path',
+    isHidden: true
   },
   {
     id: 'instinct_risk',
@@ -227,7 +229,8 @@ export const SKILLS = [
     spCost: 1,
     costType: 'SP',
     category: 'Instinct Focus',
-    group: 'instinct_path'
+    group: 'instinct_path',
+    isHidden: true
   },
   // Standalone
   {
