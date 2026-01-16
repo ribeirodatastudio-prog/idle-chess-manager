@@ -421,7 +421,7 @@ export const useGameState = () => {
       const currentSkills = stateRef.current.skills;
       const currentResources = stateRef.current.resources;
 
-      if (!skill || currentSkills[skillId]) return;
+      if (!skill) return;
 
       // Exclusivity Check
       if (skill.group) {
