@@ -196,6 +196,7 @@ function App() {
                         resources={state.resources}
                         playerElo={derivedStats.playerElo}
                         tournamentIndex={derivedStats.cumulativeTournamentIndex}
+                        tiersCleared={derivedStats.cumulativeTiersCleared}
                         puzzleMultiplier={state.puzzleStats.multiplier}
                         tenureMultiplier={derivedStats.tenureMultiplier}
                         instinctMultiplier={derivedStats.instinctMultiplier}

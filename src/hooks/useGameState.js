@@ -311,6 +311,11 @@ export const useGameState = () => {
       return GAME_MODES.reduce((sum, m) => sum + getIdx(tournament.ranks[m.id]), 0);
   }, [tournament.ranks]);
 
+  const cumulativeTiersCleared = useMemo(() => {
+      const getTiers = (r) => (typeof r === 'object' ? (r.tournamentIndex * TIERS_PER_TOURNAMENT + r.tierIndex) : 0);
+      return GAME_MODES.reduce((sum, m) => sum + getTiers(tournament.ranks[m.id]), 0);
+  }, [tournament.ranks]);
+
   // Trigger-Save on Important Changes
   useEffect(() => {
       saveGame();
@@ -854,6 +859,7 @@ export const useGameState = () => {
       totalAbilityPoints,
       totalWins,
       cumulativeTournamentIndex, // Export for UI
+      cumulativeTiersCleared,
       studyPoints: resources.studyPoints || 0,
       tenureMultiplier,
       instinctMultiplier
