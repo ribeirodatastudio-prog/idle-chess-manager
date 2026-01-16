@@ -208,6 +208,14 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
   const playerStats = applyModeWeights(rawPlayerStats, mode);
   const enemyStats = applyModeWeights(rawEnemyStats, mode);
 
+  // --- SKILL MODIFIERS (STATS) ---
+  if (skills.study_opening) playerStats.opening *= 1.1;
+  if (skills.study_midgame) playerStats.midgame *= 1.1;
+  if (skills.study_endgame) playerStats.endgame *= 1.1;
+
+  if (skills.instinct_tactics) playerStats.tactics *= 1.1;
+  if (skills.instinct_defense) playerStats.defense *= 1.1;
+
   // Chess 960: Dynamic Tactics
   if (mode === 'chess960') {
       let tacticMult = 1.0;
@@ -383,6 +391,10 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
       sacrificeChance = 0.01;
       maxSacrifices = 1;
   }
+
+  // --- SKILL MODIFIERS (SACRIFICE CHANCE) ---
+  if (skills.instinct_risk) sacrificeChance *= 1.1;
+  if (skills.chaos_theory) sacrificeChance *= 2.0;
 
   if (moveNumber > 5 && sacrificesCount < maxSacrifices) {
     let initiator = null;

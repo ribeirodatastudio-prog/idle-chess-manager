@@ -4,6 +4,8 @@ export const SKILLS = [
     name: 'Time Trouble',
     description: 'Cumulative enemy debuff in late game (Moves 35+).',
     cost: 1,
+    spCost: 0,
+    costType: 'AP',
     category: 'Mechanic'
   },
   {
@@ -11,6 +13,8 @@ export const SKILLS = [
     name: 'Lasker\'s Defense',
     description: 'Double evaluation recovery if losing after Move 20.',
     cost: 1,
+    spCost: 0,
+    costType: 'AP',
     category: 'Mechanic'
   },
   {
@@ -18,6 +22,8 @@ export const SKILLS = [
     name: 'Brilliant Move Bounty',
     description: 'Gain 10 mins of Study Time upon a successful Sacrifice event.',
     cost: 1,
+    spCost: 0,
+    costType: 'AP',
     category: 'Mechanic'
   },
   {
@@ -25,6 +31,8 @@ export const SKILLS = [
     name: 'Deep Blue Calculation',
     description: 'Player Power scales exponentially (1.02 ^ MoveNumber).',
     cost: 1,
+    spCost: 0,
+    costType: 'AP',
     category: 'Mechanic'
   },
   {
@@ -32,6 +40,8 @@ export const SKILLS = [
     name: 'Decisive Blow',
     description: 'Win/Lose Threshold reduced to +/- 5.0 (Faster games, higher risk).',
     cost: 1,
+    spCost: 0,
+    costType: 'AP',
     category: 'Mechanic'
   },
   {
@@ -39,7 +49,81 @@ export const SKILLS = [
     name: 'Iron Curtain',
     description: '-50% Attack, +40% Defense. Survival at Move 50 counts as a WIN.',
     cost: 1,
+    spCost: 0,
+    costType: 'AP',
     category: 'Mechanic'
+  },
+  // Path A: Study Focus
+  {
+    id: 'study_opening',
+    name: 'Opening Specialist',
+    description: 'Opening Stat x1.1 (Matches Only)',
+    cost: 0,
+    spCost: 1,
+    costType: 'SP',
+    category: 'Study Focus',
+    group: 'study_path'
+  },
+  {
+    id: 'study_midgame',
+    name: 'Midgame Maestro',
+    description: 'Midgame Stat x1.1 (Matches Only)',
+    cost: 0,
+    spCost: 1,
+    costType: 'SP',
+    category: 'Study Focus',
+    group: 'study_path'
+  },
+  {
+    id: 'study_endgame',
+    name: 'Endgame Virtuoso',
+    description: 'Endgame Stat x1.1 (Matches Only)',
+    cost: 0,
+    spCost: 1,
+    costType: 'SP',
+    category: 'Study Focus',
+    group: 'study_path'
+  },
+  // Path B: Instinct Focus
+  {
+    id: 'instinct_tactics',
+    name: 'Tactical Eye',
+    description: 'Tactics Stat x1.1 (Matches Only)',
+    cost: 0,
+    spCost: 1,
+    costType: 'SP',
+    category: 'Instinct Focus',
+    group: 'instinct_path'
+  },
+  {
+    id: 'instinct_defense',
+    name: 'Iron Will',
+    description: 'Defense Stat x1.1 (Matches Only)',
+    cost: 0,
+    spCost: 1,
+    costType: 'SP',
+    category: 'Instinct Focus',
+    group: 'instinct_path'
+  },
+  {
+    id: 'instinct_risk',
+    name: 'Gambler\'s Instinct',
+    description: 'Sacrifice Trigger Chance x1.1 (+10% frequency) (Matches Only)',
+    cost: 0,
+    spCost: 1,
+    costType: 'SP',
+    category: 'Instinct Focus',
+    group: 'instinct_path'
+  },
+  // Standalone
+  {
+    id: 'chaos_theory',
+    name: 'Chaos Theory',
+    description: 'Doubles (2x) the base Sacrifice Chance for the player in all modes.',
+    cost: 2,
+    spCost: 0,
+    costType: 'AP',
+    category: 'Special'
   }
 ];
 
