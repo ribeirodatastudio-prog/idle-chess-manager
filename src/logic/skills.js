@@ -53,7 +53,7 @@ export const SKILLS = [
     costType: 'AP',
     category: 'Mechanic'
   },
-  // Path A: Study Focus
+  // Path A: Study Focus (Phase Parents)
   {
     id: 'study_opening',
     name: 'Opening Specialist',
@@ -62,7 +62,8 @@ export const SKILLS = [
     spCost: 1,
     costType: 'SP',
     category: 'Study Focus',
-    group: 'study_path'
+    group: 'study_path',
+    isHidden: true
   },
   {
     id: 'study_midgame',
@@ -72,7 +73,8 @@ export const SKILLS = [
     spCost: 1,
     costType: 'SP',
     category: 'Study Focus',
-    group: 'study_path'
+    group: 'study_path',
+    isHidden: true
   },
   {
     id: 'study_endgame',
@@ -82,7 +84,119 @@ export const SKILLS = [
     spCost: 1,
     costType: 'SP',
     category: 'Study Focus',
-    group: 'study_path'
+    group: 'study_path',
+    isHidden: true
+  },
+  // Tier 2: Opening Tree
+  {
+    id: 'op_def_master',
+    name: 'Opening Defense',
+    description: 'Opening Phase: Defense x (1 + 0.1/Lvl)',
+    cost: 0,
+    spCost: 1,
+    costType: 'SP',
+    category: 'Phase Mastery',
+    parentId: 'study_opening',
+    maxLevel: 5,
+    isHidden: true
+  },
+  {
+    id: 'op_tac_master',
+    name: 'Opening Tactics',
+    description: 'Opening Phase: Tactics x (1 + 0.1/Lvl)',
+    cost: 0,
+    spCost: 1,
+    costType: 'SP',
+    category: 'Phase Mastery',
+    parentId: 'study_opening',
+    maxLevel: 5,
+    isHidden: true
+  },
+  {
+    id: 'op_sac_master',
+    name: 'Opening Risks',
+    description: 'Opening Phase: Sacrifice Chance +1%/Lvl',
+    cost: 0,
+    spCost: 1,
+    costType: 'SP',
+    category: 'Phase Mastery',
+    parentId: 'study_opening',
+    maxLevel: 5,
+    isHidden: true
+  },
+  // Tier 2: Midgame Tree
+  {
+    id: 'mid_def_master',
+    name: 'Midgame Defense',
+    description: 'Midgame Phase: Defense x (1 + 0.1/Lvl)',
+    cost: 0,
+    spCost: 1,
+    costType: 'SP',
+    category: 'Phase Mastery',
+    parentId: 'study_midgame',
+    maxLevel: 5,
+    isHidden: true
+  },
+  {
+    id: 'mid_tac_master',
+    name: 'Midgame Tactics',
+    description: 'Midgame Phase: Tactics x (1 + 0.1/Lvl)',
+    cost: 0,
+    spCost: 1,
+    costType: 'SP',
+    category: 'Phase Mastery',
+    parentId: 'study_midgame',
+    maxLevel: 5,
+    isHidden: true
+  },
+  {
+    id: 'mid_sac_master',
+    name: 'Midgame Risks',
+    description: 'Midgame Phase: Sacrifice Chance +1%/Lvl',
+    cost: 0,
+    spCost: 1,
+    costType: 'SP',
+    category: 'Phase Mastery',
+    parentId: 'study_midgame',
+    maxLevel: 5,
+    isHidden: true
+  },
+  // Tier 2: Endgame Tree
+  {
+    id: 'end_def_master',
+    name: 'Endgame Defense',
+    description: 'Endgame Phase: Defense x (1 + 0.1/Lvl)',
+    cost: 0,
+    spCost: 1,
+    costType: 'SP',
+    category: 'Phase Mastery',
+    parentId: 'study_endgame',
+    maxLevel: 5,
+    isHidden: true
+  },
+  {
+    id: 'end_tac_master',
+    name: 'Endgame Tactics',
+    description: 'Endgame Phase: Tactics x (1 + 0.1/Lvl)',
+    cost: 0,
+    spCost: 1,
+    costType: 'SP',
+    category: 'Phase Mastery',
+    parentId: 'study_endgame',
+    maxLevel: 5,
+    isHidden: true
+  },
+  {
+    id: 'end_sac_master',
+    name: 'Endgame Risks',
+    description: 'Endgame Phase: Sacrifice Chance +1%/Lvl',
+    cost: 0,
+    spCost: 1,
+    costType: 'SP',
+    category: 'Phase Mastery',
+    parentId: 'study_endgame',
+    maxLevel: 5,
+    isHidden: true
   },
   // Path B: Instinct Focus
   {

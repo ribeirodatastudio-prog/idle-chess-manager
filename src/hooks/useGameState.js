@@ -382,17 +382,36 @@ export const useGameState = () => {
           const hasConflict = Object.keys(currentSkills).some(ownedId => {
               if (!currentSkills[ownedId]) return false;
               const ownedSkill = getSkillById(ownedId);
-              return ownedSkill && ownedSkill.group === skill.group;
+              // Only block if conflict exists AND it's not the same skill (allow upgrades if applicable)
+              return ownedSkill && ownedSkill.group === skill.group && ownedSkill.id !== skillId;
           });
           if (hasConflict) return;
       }
+
+      // Requirement Check (Parent Skill)
+      if (skill.parentId) {
+          const parentOwned = currentSkills[skill.parentId];
+          // Parent must be owned (true or level >= 1)
+          if (!parentOwned) return;
+      }
+
+      // Handle Leveling Logic
+      const currentLevel = typeof currentSkills[skillId] === 'number'
+          ? currentSkills[skillId]
+          : (currentSkills[skillId] ? 1 : 0);
+
+      const maxLevel = skill.maxLevel || 1;
+
+      if (currentLevel >= maxLevel) return;
 
       if (skill.costType === 'SP') {
           const spCost = skill.spCost || 0;
           const currentSP = currentResources.studyPoints || 0;
 
           if (currentSP >= spCost) {
-              setSkills(prev => ({ ...prev, [skillId]: true }));
+              // Increment Level
+              const newLevel = currentLevel + 1;
+              setSkills(prev => ({ ...prev, [skillId]: newLevel }));
               setResources(prev => ({ ...prev, studyPoints: (prev.studyPoints || 0) - spCost }));
           }
       } else {
