@@ -234,6 +234,23 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
   if (skills.instinct_tactics) playerStats.tactics *= 1.1;
   if (skills.instinct_defense) playerStats.defense *= 1.1;
 
+  // NEW: Instinct Debuffs (Disruption)
+  const tacDebLvl = getSkillLevel(skills, 'inst_tac_deb');
+  const defDebLvl = getSkillLevel(skills, 'inst_def_deb');
+  const sacDebLvl = getSkillLevel(skills, 'inst_sac_deb');
+
+  if (tacDebLvl > 0) enemyStats.tactics *= (1 - (0.01 * tacDebLvl));
+  if (defDebLvl > 0) enemyStats.defense *= (1 - (0.01 * defDebLvl));
+  if (sacDebLvl > 0) enemyStats.endgame *= (1 - (0.01 * sacDebLvl));
+
+  // NEW: Instinct Momentum (Scaling)
+  const tacScaleLvl = getSkillLevel(skills, 'inst_tac_scale');
+  const defScaleLvl = getSkillLevel(skills, 'inst_def_scale');
+  const sacScaleLvl = getSkillLevel(skills, 'inst_sac_scale'); // Affects sacrificeChance later
+
+  if (tacScaleLvl > 0) playerStats.tactics *= Math.pow(1 + (0.005 * tacScaleLvl), moveNumber);
+  if (defScaleLvl > 0) playerStats.defense *= Math.pow(1 + (0.005 * defScaleLvl), moveNumber);
+
   // Chess 960: Dynamic Tactics
   if (mode === 'chess960') {
       let tacticMult = 1.0;
@@ -525,6 +542,9 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
   // --- SKILL MODIFIERS (SACRIFICE CHANCE) ---
   if (skills.instinct_risk) sacrificeChance *= 1.1;
   if (skills.chaos_theory) sacrificeChance *= 2.0;
+
+  // NEW: Instinct Momentum (Sacrifice Scaling)
+  if (sacScaleLvl > 0) sacrificeChance *= Math.pow(1 + (0.005 * sacScaleLvl), moveNumber);
 
   // Phase Mastery Sacrifice Modifiers
   if (moveNumber <= phases.openingEnd) {
