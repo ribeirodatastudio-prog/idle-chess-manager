@@ -75,19 +75,47 @@ const StatCard = ({ statKey, level, resources, onUpgrade }) => {
   );
 };
 
-export const StatsHeader = ({ resources, playerElo, tournamentIndex = 0, puzzleMultiplier = 1.0 }) => {
-  const incomePerMinute = calculatePassiveIncomePerMinute(tournamentIndex) * puzzleMultiplier;
+export const StatsHeader = ({ resources, playerElo, tournamentIndex = 0, puzzleMultiplier = 1.0, tenureMultiplier = 1.0, instinctMultiplier = 1.0 }) => {
+  const baseIncome = calculatePassiveIncomePerMinute(tournamentIndex);
+  const totalIncome = baseIncome * puzzleMultiplier * tenureMultiplier * instinctMultiplier;
 
   return (
     <div className="mb-6 grid grid-cols-2 gap-4">
-        <div className="glass-card p-3 rounded-xl flex flex-col items-center justify-center relative">
+        <div className="glass-card p-3 rounded-xl flex flex-col items-center justify-center relative group">
           <span className="text-xs text-gray-500 uppercase tracking-widest mb-1">Study Time</span>
           <span className="text-blue-400 font-mono text-xl font-bold leading-none mb-1 text-shadow-glow">
             {formatNumber(resources.studyTime)}
           </span>
           <span className="text-[10px] text-emerald-400 font-mono bg-emerald-900/20 px-1.5 py-0.5 rounded border border-emerald-500/20">
-              +{formatNumber(incomePerMinute)}/min
+              +{formatNumber(totalIncome)}/min
           </span>
+
+          {/* Tooltip */}
+          <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-48 bg-gray-900 border border-gray-700 rounded-lg p-2 z-50 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-xl">
+             <div className="text-[10px] text-gray-400 font-mono space-y-1">
+                 <div className="flex justify-between">
+                     <span>Base:</span>
+                     <span className="text-white">{formatNumber(baseIncome)}/min</span>
+                 </div>
+                 <div className="flex justify-between">
+                     <span>Puzzles:</span>
+                     <span className="text-yellow-400">x{puzzleMultiplier.toFixed(2)}</span>
+                 </div>
+                 <div className="flex justify-between">
+                     <span>Tenure:</span>
+                     <span className="text-blue-400">x{tenureMultiplier.toFixed(2)}</span>
+                 </div>
+                 <div className="flex justify-between">
+                     <span>Instinct:</span>
+                     <span className="text-red-400">x{instinctMultiplier.toFixed(2)}</span>
+                 </div>
+                 <div className="h-px bg-gray-700 my-1"></div>
+                 <div className="flex justify-between font-bold">
+                     <span>TOTAL:</span>
+                     <span className="text-emerald-400">{formatNumber(totalIncome)}/min</span>
+                 </div>
+             </div>
+          </div>
         </div>
         <div className="glass-card p-3 rounded-xl flex flex-col items-center justify-center">
           <span className="text-xs text-gray-500 uppercase tracking-widest mb-1">Elo</span>
