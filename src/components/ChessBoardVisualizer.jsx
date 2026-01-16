@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import Piece from 'react-chess-pieces';
+import ChessPiece from './ChessPiece';
 
 const FEN_CONFIG = {
   opening: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR',
@@ -51,7 +51,7 @@ export const ChessBoardVisualizer = ({ phase = 'Opening' }) => {
               >
                 {piece && (
                   <div className="w-[85%] h-[85%] pointer-events-none drop-shadow-md">
-                    <Piece piece={piece} />
+                    <ChessPiece piece={piece} />
                   </div>
                 )}
               </div>
