@@ -63,6 +63,7 @@ export const SKILLS = [
     costType: 'SP',
     category: 'Study Focus',
     group: 'study_path',
+    tier: 0,
     isHidden: true
   },
   {
@@ -74,6 +75,7 @@ export const SKILLS = [
     costType: 'SP',
     category: 'Study Focus',
     group: 'study_path',
+    tier: 0,
     isHidden: true
   },
   {
@@ -85,9 +87,10 @@ export const SKILLS = [
     costType: 'SP',
     category: 'Study Focus',
     group: 'study_path',
+    tier: 0,
     isHidden: true
   },
-  // Tier 2: Opening Tree
+  // Tier 1: Opening Tree
   {
     id: 'op_def_master',
     name: 'Opening Defense',
@@ -98,6 +101,7 @@ export const SKILLS = [
     category: 'Phase Mastery',
     parentId: 'study_opening',
     maxLevel: 5,
+    tier: 1,
     isHidden: true
   },
   {
@@ -110,6 +114,7 @@ export const SKILLS = [
     category: 'Phase Mastery',
     parentId: 'study_opening',
     maxLevel: 5,
+    tier: 1,
     isHidden: true
   },
   {
@@ -122,8 +127,10 @@ export const SKILLS = [
     category: 'Phase Mastery',
     parentId: 'study_opening',
     maxLevel: 5,
+    tier: 1,
     isHidden: true
   },
+  // Tier 2: Opening Tree
   {
     id: 'op_extender',
     name: 'Opening Extender',
@@ -134,6 +141,7 @@ export const SKILLS = [
     category: 'Phase Mastery',
     parentId: 'study_opening',
     maxLevel: 3,
+    tier: 2,
     isHidden: true
   },
   {
@@ -146,6 +154,7 @@ export const SKILLS = [
     category: 'Phase Mastery',
     parentId: 'study_opening',
     maxLevel: 3,
+    tier: 2,
     isHidden: true
   },
   {
@@ -158,9 +167,37 @@ export const SKILLS = [
     category: 'Phase Mastery',
     parentId: 'study_opening',
     maxLevel: 1,
+    tier: 2,
     isHidden: true
   },
-  // Tier 2: Midgame Tree
+  // Tier 3: Opening Tree (NEW)
+  {
+    id: 'op_novelty',
+    name: 'Prepared Novelty',
+    description: 'Debuff: Enemy Opening Stats -3% per level.',
+    cost: 0,
+    spCost: 15,
+    costType: 'SP',
+    category: 'Phase Mastery',
+    parentId: 'study_opening',
+    maxLevel: 3,
+    tier: 3,
+    isHidden: true
+  },
+  {
+    id: 'op_space',
+    name: 'Space Advantage',
+    description: 'Momentum: If Opening Eval > 0, +4% All Stats in Midgame per level.',
+    cost: 0,
+    spCost: 15,
+    costType: 'SP',
+    category: 'Phase Mastery',
+    parentId: 'study_opening',
+    maxLevel: 3,
+    tier: 3,
+    isHidden: true
+  },
+  // Tier 1: Midgame Tree
   {
     id: 'mid_def_master',
     name: 'Midgame Defense',
@@ -171,6 +208,7 @@ export const SKILLS = [
     category: 'Phase Mastery',
     parentId: 'study_midgame',
     maxLevel: 5,
+    tier: 1,
     isHidden: true
   },
   {
@@ -183,6 +221,7 @@ export const SKILLS = [
     category: 'Phase Mastery',
     parentId: 'study_midgame',
     maxLevel: 5,
+    tier: 1,
     isHidden: true
   },
   {
@@ -195,8 +234,10 @@ export const SKILLS = [
     category: 'Phase Mastery',
     parentId: 'study_midgame',
     maxLevel: 5,
+    tier: 1,
     isHidden: true
   },
+  // Tier 2: Midgame Tree
   {
     id: 'mid_extender',
     name: 'Midgame Extender',
@@ -207,6 +248,7 @@ export const SKILLS = [
     category: 'Phase Mastery',
     parentId: 'study_midgame',
     maxLevel: 3,
+    tier: 2,
     isHidden: true
   },
   {
@@ -219,6 +261,7 @@ export const SKILLS = [
     category: 'Phase Mastery',
     parentId: 'study_midgame',
     maxLevel: 3,
+    tier: 2,
     isHidden: true
   },
   {
@@ -231,9 +274,37 @@ export const SKILLS = [
     category: 'Phase Mastery',
     parentId: 'study_midgame',
     maxLevel: 1,
+    tier: 2,
     isHidden: true
   },
-  // Tier 2: Endgame Tree
+  // Tier 3: Midgame Tree (NEW)
+  {
+    id: 'mid_cloud',
+    name: 'Tactical Cloud',
+    description: 'Debuff: Enemy Tactics -3% per level during Midgame.',
+    cost: 0,
+    spCost: 15,
+    costType: 'SP',
+    category: 'Phase Mastery',
+    parentId: 'study_midgame',
+    maxLevel: 3,
+    tier: 3,
+    isHidden: true
+  },
+  {
+    id: 'mid_simplify',
+    name: 'Simplification',
+    description: 'Momentum: If Midgame Eval > 0, +4% All Stats in Endgame per level.',
+    cost: 0,
+    spCost: 15,
+    costType: 'SP',
+    category: 'Phase Mastery',
+    parentId: 'study_midgame',
+    maxLevel: 3,
+    tier: 3,
+    isHidden: true
+  },
+  // Tier 1: Endgame Tree
   {
     id: 'end_def_master',
     name: 'Endgame Defense',
@@ -244,6 +315,7 @@ export const SKILLS = [
     category: 'Phase Mastery',
     parentId: 'study_endgame',
     maxLevel: 5,
+    tier: 1,
     isHidden: true
   },
   {
@@ -256,6 +328,7 @@ export const SKILLS = [
     category: 'Phase Mastery',
     parentId: 'study_endgame',
     maxLevel: 5,
+    tier: 1,
     isHidden: true
   },
   {
@@ -268,8 +341,10 @@ export const SKILLS = [
     category: 'Phase Mastery',
     parentId: 'study_endgame',
     maxLevel: 5,
+    tier: 1,
     isHidden: true
   },
+  // Tier 2: Endgame Tree
   {
     id: 'end_extender',
     name: 'Endgame Extender',
@@ -280,6 +355,7 @@ export const SKILLS = [
     category: 'Phase Mastery',
     parentId: 'study_endgame',
     maxLevel: 3,
+    tier: 2,
     isHidden: true
   },
   {
@@ -292,6 +368,7 @@ export const SKILLS = [
     category: 'Phase Mastery',
     parentId: 'study_endgame',
     maxLevel: 3,
+    tier: 2,
     isHidden: true
   },
   {
@@ -304,6 +381,34 @@ export const SKILLS = [
     category: 'Phase Mastery',
     parentId: 'study_endgame',
     maxLevel: 1,
+    tier: 2,
+    isHidden: true
+  },
+  // Tier 3: Endgame Tree (NEW)
+  {
+    id: 'end_tablebase',
+    name: 'Tablebase Memory',
+    description: 'Debuff: Enemy Defense -3% per level during Endgame.',
+    cost: 0,
+    spCost: 15,
+    costType: 'SP',
+    category: 'Phase Mastery',
+    parentId: 'study_endgame',
+    maxLevel: 3,
+    tier: 3,
+    isHidden: true
+  },
+  {
+    id: 'end_zugzwang',
+    name: 'Zugzwang Squeeze',
+    description: 'Enemy stats decay 1% per turn (cumulative) after move 30.',
+    cost: 0,
+    spCost: 15,
+    costType: 'SP',
+    category: 'Phase Mastery',
+    parentId: 'study_endgame',
+    maxLevel: 3,
+    tier: 3,
     isHidden: true
   },
   // Path B: Instinct Focus
@@ -464,3 +569,53 @@ export const SKILLS = [
 ];
 
 export const getSkillById = (id) => SKILLS.find(s => s.id === id);
+
+// Helper: Get Level
+const getLevel = (skills, id) => {
+    const val = skills[id];
+    if (typeof val === 'number') return val;
+    return val ? 1 : 0;
+};
+
+// Helper: Get Tier Unlock Status
+export const getBranchTierStatus = (branch, ownedSkills) => {
+    // Branch: 'opening', 'midgame', 'endgame'
+    // Map branch to Parent ID
+    const parentId = `study_${branch}`;
+
+    // Tier 1 Skills: Children of Parent with Tier 1
+    const tier1Skills = SKILLS.filter(s => s.parentId === parentId && s.tier === 1);
+
+    // Tier 2 Skills: Children of Parent with Tier 2
+    const tier2Skills = SKILLS.filter(s => s.parentId === parentId && s.tier === 2);
+
+    // Calculate Total Levels
+    const tier1Levels = tier1Skills.reduce((sum, skill) => sum + getLevel(ownedSkills, skill.id), 0);
+    const tier2Levels = tier2Skills.reduce((sum, skill) => sum + getLevel(ownedSkills, skill.id), 0);
+
+    return {
+        tier2Unlocked: tier1Levels >= 5,
+        tier3Unlocked: tier2Levels >= 1
+    };
+};
+
+// Helper: Calculate Academic Tenure Multiplier
+export const calculateTenureMultiplier = (ownedSkills) => {
+    // Sum levels of ALL skills in 'Study Focus' category OR 'study_path' group (for roots)
+    // Actually, checking categories 'Study Focus' (Roots) and 'Phase Mastery' (Children) is safest.
+
+    let totalLevels = 0;
+
+    Object.keys(ownedSkills).forEach(skillId => {
+        const skill = getSkillById(skillId);
+        if (skill) {
+             // Root Skills (Tier 0) -> Category: 'Study Focus'
+             // Child Skills (Tier 1-3) -> Category: 'Phase Mastery'
+             if (skill.category === 'Study Focus' || skill.category === 'Phase Mastery') {
+                 totalLevels += getLevel(ownedSkills, skillId);
+             }
+        }
+    });
+
+    return Math.pow(1.05, totalLevels);
+};

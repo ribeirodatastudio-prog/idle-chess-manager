@@ -221,7 +221,7 @@ export const getPhaseConfig = (skills = {}) => {
   return { openingEnd, midgameEnd, maxTurns };
 };
 
-export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, currentEval, skills = {}, phase1Won = false, move11Eval = 0, mode = 'rapid', sacrificesCount = 0, phaseConfig = null) => {
+export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, currentEval, skills = {}, phase1Won = false, move11Eval = 0, mode = 'rapid', sacrificesCount = 0, phaseConfig = null, phase2Won = false) => {
   // --- PREPARATION & WEIGHTS ---
   const playerStats = applyModeWeights(rawPlayerStats, mode);
   const enemyStats = applyModeWeights(rawEnemyStats, mode);
@@ -280,6 +280,12 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
     if (instDefLvl > 0) playerStats.defense *= (1 + (0.01 * instDefLvl));
     if (instTacLvl > 0) playerStats.tactics *= (1 + (0.01 * instTacLvl));
 
+    // Tier 3 Debuff: Prepared Novelty (Enemy Opening -3%/lvl)
+    const noveltyLvl = getSkillLevel(skills, 'op_novelty');
+    if (noveltyLvl > 0) {
+        enemyStats.opening *= (1 - (0.03 * noveltyLvl));
+    }
+
     // Stats
     playerBaseSum = playerStats.opening + (playerStats.tactics * 0.2);
     enemyBaseSum = enemyStats.opening + (enemyStats.tactics * 0.2);
@@ -308,6 +314,26 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
 
     if (instDefLvl > 0) playerStats.defense *= (1 + (0.01 * instDefLvl));
     if (instTacLvl > 0) playerStats.tactics *= (1 + (0.01 * instTacLvl));
+
+    // Tier 3 Debuff: Tactical Cloud (Enemy Tactics -3%/lvl)
+    const cloudLvl = getSkillLevel(skills, 'mid_cloud');
+    if (cloudLvl > 0) {
+        enemyStats.tactics *= (1 - (0.03 * cloudLvl));
+    }
+
+    // Tier 3 Momentum: Space Advantage (If Phase 1 Won, +4% All Stats/lvl)
+    if (phase1Won) {
+        const spaceLvl = getSkillLevel(skills, 'op_space');
+        if (spaceLvl > 0) {
+            const mult = 1 + (0.04 * spaceLvl);
+            playerStats.opening *= mult;
+            playerStats.midgame *= mult;
+            playerStats.endgame *= mult;
+            playerStats.tactics *= mult;
+            playerStats.sacrifices *= mult;
+            playerStats.defense *= mult;
+        }
+    }
 
     // Stats
     playerBaseSum = playerStats.midgame + (playerStats.tactics * 0.8);
@@ -338,6 +364,42 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
     if (instDefLvl > 0) playerStats.defense *= (1 + (0.01 * instDefLvl));
     if (instTacLvl > 0) playerStats.tactics *= (1 + (0.01 * instTacLvl));
     
+    // Tier 3 Debuff: Tablebase Memory (Enemy Defense -3%/lvl)
+    const tablebaseLvl = getSkillLevel(skills, 'end_tablebase');
+    if (tablebaseLvl > 0) {
+        enemyStats.defense *= (1 - (0.03 * tablebaseLvl));
+    }
+
+    // Tier 3 Momentum: Simplification (If Phase 2 Won, +4% All Stats/lvl)
+    if (phase2Won) {
+        const simplifyLvl = getSkillLevel(skills, 'mid_simplify');
+        if (simplifyLvl > 0) {
+            const mult = 1 + (0.04 * simplifyLvl);
+            playerStats.opening *= mult;
+            playerStats.midgame *= mult;
+            playerStats.endgame *= mult;
+            playerStats.tactics *= mult;
+            playerStats.sacrifices *= mult;
+            playerStats.defense *= mult;
+        }
+    }
+
+    // Tier 3 Zugzwang (Enemy stats decay 1% per turn after move 30)
+    // Applies to BaseSum calculation? Or Stats?
+    // "Enemy stats decay". Let's apply to ALL enemy stats before BaseSum.
+    const zugzwangLvl = getSkillLevel(skills, 'end_zugzwang');
+    if (zugzwangLvl > 0 && moveNumber > 30) {
+        const decay = 0.01 * zugzwangLvl * (moveNumber - 30);
+        const multiplier = Math.max(0, 1.0 - decay);
+
+        enemyStats.opening *= multiplier;
+        enemyStats.midgame *= multiplier;
+        enemyStats.endgame *= multiplier;
+        enemyStats.tactics *= multiplier;
+        enemyStats.sacrifices *= multiplier;
+        enemyStats.defense *= multiplier;
+    }
+
     // Stats
     playerBaseSum = playerStats.endgame + (playerStats.tactics * 1.5);
     enemyBaseSum = enemyStats.endgame + (enemyStats.tactics * 1.5);
