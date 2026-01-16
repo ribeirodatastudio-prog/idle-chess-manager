@@ -1,9 +1,9 @@
 import React, { useState, memo } from 'react';
 import { TOURNAMENT_CONFIG } from '../logic/tournaments';
 import { GAME_MODES } from '../logic/gameModes';
+import { ChessBoardVisualizer } from './ChessBoardVisualizer';
 
 const MATCH_INDICATORS = [0, 1, 2];
-const CHESSBOARD_SQUARES = Array.from({ length: 64 });
 
 export const ArenaPanel = memo(({
   tournament, 
@@ -107,32 +107,37 @@ export const ArenaPanel = memo(({
       )}
 
       {/* Evaluation Bar */}
-      <div className="mb-4 sm:mb-8 relative z-10 shrink-0">
-        <div className="flex justify-between text-xs text-gray-400 mb-1 font-mono">
-          <span className="text-red-500 font-bold">BLACK (-8)</span>
-          <span>{clampedEval > 0 ? '+' : ''}{clampedEval.toFixed(2)}</span>
-          <span className="text-green-500 font-bold">WHITE (+8)</span>
+      <div className="mb-6 relative z-10 shrink-0 px-2">
+        <div className="flex justify-between text-[10px] text-gray-500 mb-1 font-mono uppercase tracking-widest">
+          <span className="font-bold text-gray-400">Opponent</span>
+          <span className={`font-bold ${clampedEval > 0 ? 'text-emerald-400' : clampedEval < 0 ? 'text-gray-400' : 'text-white'}`}>
+            {clampedEval > 0 ? '+' : ''}{clampedEval.toFixed(2)}
+          </span>
+          <span className="font-bold text-emerald-500">Player</span>
         </div>
-        <div className="h-4 sm:h-6 bg-gray-700 rounded-full overflow-hidden relative border border-gray-600 shadow-inner">
-          {/* Middle Marker */}
-          <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-gray-500 z-20"></div>
+
+        {/* The Bar Container */}
+        <div className="h-4 bg-gray-800 relative border border-gray-700 shadow-inner overflow-hidden">
           
-          {/* The Bar */}
+          {/* Background Split */}
           <div 
-            className="h-full transition-all duration-500 ease-in-out bg-gradient-to-r from-red-600 via-gray-400 to-green-600"
+            className="absolute inset-0 transition-all duration-500 ease-out"
             style={{ 
-              width: '100%',
               background: `linear-gradient(to right, 
-                #ef4444 0%, 
-                #ef4444 ${barPercentage}%, 
-                #22c55e ${barPercentage}%, 
-                #22c55e 100%)`
+                #333333 0%,
+                #333333 ${100 - barPercentage}%,
+                #4CAF50 ${100 - barPercentage}%,
+                #4CAF50 100%)`
              }}
           ></div>
-           {/* Slider Thumb */}
+
+          {/* Middle Marker (Static at 0.0) */}
+          <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-white/80 z-20 shadow-[0_0_5px_rgba(255,255,255,0.5)]"></div>
+
+           {/* Slider Thumb / Split Line (at the boundary) */}
            <div 
-             className="absolute top-0 bottom-0 w-2 bg-white shadow-[0_0_10px_white] transition-all duration-500 ease-in-out z-30 transform -translate-x-1/2"
-             style={{ left: `${barPercentage}%` }}
+             className="absolute top-0 bottom-0 w-1 bg-white shadow-[0_0_10px_white] transition-all duration-500 ease-out z-30 transform -translate-x-1/2"
+             style={{ left: `${100 - barPercentage}%` }}
            ></div>
         </div>
       </div>
@@ -178,13 +183,8 @@ export const ArenaPanel = memo(({
               </div>
             </div>
             
-            <div className="h-32 flex items-center justify-center bg-black/30 rounded border border-gray-700/50">
-               {/* Simple Simulation Visualizer */}
-               <div className="grid grid-cols-8 grid-rows-8 gap-0.5 w-24 h-24 opacity-50">
-                  {CHESSBOARD_SQUARES.map((_, i) => (
-                    <div key={i} className={`${(Math.floor(i / 8) + i) % 2 === 0 ? 'bg-gray-600' : 'bg-gray-800'}`}></div>
-                  ))}
-               </div>
+            <div className="flex justify-center py-2">
+               <ChessBoardVisualizer phase={phase} />
             </div>
           </div>
         )}

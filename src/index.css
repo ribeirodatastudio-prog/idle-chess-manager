@@ -1,1 +1,34 @@
 @import "tailwindcss";
+
+@theme {
+  --font-sans: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --color-gunmetal-deep: #1E1E24;
+  --color-gunmetal-light: #252529;
+  --color-gold-primary: #D4AF37;
+  --color-success-emerald: #4CAF50;
+  --color-text-ice: #F8F9FA;
+  --color-text-muted: #9CA3AF;
+}
+
+:root {
+  font-family: 'Inter', sans-serif;
+  background-color: var(--color-gunmetal-deep);
+  color: var(--color-text-ice);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+.font-mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+@layer utilities {
+  .glass-card {
+    @apply bg-gunmetal-light/70 backdrop-blur-md shadow-lg border border-white/5;
+  }
+}
