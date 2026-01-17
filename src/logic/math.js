@@ -14,32 +14,68 @@ export const calculatePassiveIncomePerSecond = (tournamentWins, tiersCleared = 0
   return perMinute / 60;
 };
 
-export const calculateUpgradeCost = (currentLevel, hasPrepFiles = false, statName = '') => {
-  // Base Cost: 1
-  // Growth: 1.1x per level
-  let cost = 1 * Math.pow(1.1, currentLevel - 1);
-  
-  if (statName === 'sacrifices') {
-      // The Wall: Every 50 levels, the cost jumps by 1000x and STAYS there.
-      // Tier 0 (0-48): 1x
-      // Tier 1 (49-98): 1000x
-      // Tier 2 (99-148): 1,000,000x
-      const wallTier = Math.floor((currentLevel + 1) / 50);
-      const wallMultiplier = Math.pow(1000, wallTier);
-      cost *= wallMultiplier;
+// Internal Helper: Standard Growth Logic
+// Tier 1 (0-500): 1.03
+// Tier 2 (501-10000): 1.08
+// Tier 3 (10001+): 1.15
+const getStandardCost = (targetLevel) => {
+  // Tier 1
+  if (targetLevel <= 500) {
+    return Math.pow(1.03, targetLevel - 1);
+  }
 
-      // Note: Standard 5x spike does NOT apply to sacrifices to avoid double spiking.
-  } else if (statName === 'defense' || statName === 'tactics') {
-      // Defense/Tactics: Spike 5x every 75 levels (Permanent)
-      const spikeTier = Math.floor((currentLevel + 1) / 75);
-      const spikeMultiplier = Math.pow(5, spikeTier);
-      cost *= spikeMultiplier;
+  // Anchor at Level 500
+  const costAt500 = Math.pow(1.03, 499);
+  
+  // Tier 2
+  if (targetLevel <= 10000) {
+    return costAt500 * Math.pow(1.08, targetLevel - 500);
+  }
+
+  // Anchor at Level 10000
+  const costAt10000 = costAt500 * Math.pow(1.08, 10000 - 500);
+
+  // Tier 3
+  return costAt10000 * Math.pow(1.15, targetLevel - 10000);
+};
+
+// Internal Helper: Sacrifice Growth Logic
+// Tier 1 (0-100): 1.10
+// Tier 2 (101-300): 1.15
+// Tier 3 (301-500): 1.20
+const getSacrificeCost = (targetLevel) => {
+  // Tier 1
+  if (targetLevel <= 100) {
+    return Math.pow(1.10, targetLevel - 1);
+  }
+
+  // Anchor at Level 100
+  const costAt100 = Math.pow(1.10, 99);
+
+  // Tier 2
+  if (targetLevel <= 300) {
+    return costAt100 * Math.pow(1.15, targetLevel - 100);
+  }
+
+  // Anchor at Level 300
+  const costAt300 = costAt100 * Math.pow(1.15, 300 - 100);
+
+  // Tier 3
+  return costAt300 * Math.pow(1.20, targetLevel - 300);
+};
+
+export const calculateUpgradeCost = (currentLevel, hasPrepFiles = false, statName = '') => {
+  // Determine Target Level (Cost is for the NEXT level)
+  // If currentLevel is 1, we are buying Level 2.
+  // Note: Handle currentLevel = 0 case (Buying Level 1)
+  const targetLevel = currentLevel + 1;
+
+  let cost = 0;
+
+  if (statName === 'sacrifices') {
+      cost = getSacrificeCost(targetLevel);
   } else {
-      // Standard Spike logic for other stats (Opening, Midgame, Endgame)
-      // Spike 5x every 100 levels (Permanent)
-      const spikeTier = Math.floor((currentLevel + 1) / 100);
-      const spikeMultiplier = Math.pow(5, spikeTier);
-      cost *= spikeMultiplier;
+      cost = getStandardCost(targetLevel);
   }
   
   // Prep Files Discount (Category A)
