@@ -12,7 +12,8 @@ const STORAGE_KEY = 'chess-career-save-v2';
 const INITIAL_RESOURCES = {
   studyTime: 0,
   studyPoints: 0,
-  reviewTokens: 1 // Start with 1 token
+  reviewTokens: 1, // Start with 1 token
+  isDevMode: false
 };
 
 const INITIAL_STATS = {
@@ -784,11 +785,49 @@ export const useGameState = () => {
   const enableDevMode = useCallback(() => {
     setResources(prev => ({
         ...prev,
-        studyTime: 1e30 // Infinite study time
+        studyTime: 1e30, // Infinite study time
+        isDevMode: true
     }));
   }, []);
 
   // Debug Actions
+  const completeTournament = useCallback(() => {
+      const currentRes = stateRef.current.resources;
+      if (!currentRes.isDevMode) return;
+
+      const currentTournament = stateRef.current.tournament;
+      const targetMode = 'rapid';
+      const currentRank = currentTournament.ranks[targetMode];
+
+      const tiersSkipped = TIERS_PER_TOURNAMENT - currentRank.tierIndex;
+      const spAward = Math.max(0, tiersSkipped);
+
+      let newTourn = currentRank.tournamentIndex + 1;
+      if (newTourn >= TOURNAMENT_CONFIG.length) newTourn = TOURNAMENT_CONFIG.length - 1;
+
+      // Update Resources
+      setResources(res => ({
+          ...res,
+          studyPoints: (res.studyPoints || 0) + spAward,
+          reviewTokens: Math.min(3, (res.reviewTokens || 0) + 1)
+      }));
+
+      // Update Tournament
+      setTournament(prev => ({
+          ...prev,
+          active: false,
+          activeMode: null,
+          ranks: {
+              ...prev.ranks,
+              [targetMode]: {
+                  tournamentIndex: newTourn,
+                  tierIndex: 0,
+                  matchIndex: 0
+              }
+          }
+      }));
+  }, []);
+
   const addResource = useCallback((amount) => {
       setResources(prev => ({ ...prev, studyTime: prev.studyTime + amount }));
   }, []);
@@ -815,8 +854,9 @@ export const useGameState = () => {
       triggerSacrificeBonus,
       solvePuzzle,
       tacticalReview,
-      enableDevMode
-  }), [upgradeStat, purchaseSkill, startTournament, endTournament, addResource, resetGame, claimOfflineReward, triggerSacrificeBonus, solvePuzzle, tacticalReview, enableDevMode]);
+      enableDevMode,
+      completeTournament
+  }), [upgradeStat, purchaseSkill, startTournament, endTournament, addResource, resetGame, claimOfflineReward, triggerSacrificeBonus, solvePuzzle, tacticalReview, enableDevMode, completeTournament]);
 
   const derivedStats = {
       playerElo,
