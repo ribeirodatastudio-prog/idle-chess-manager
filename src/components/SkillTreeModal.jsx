@@ -309,7 +309,7 @@ const ChildNode = ({ skill, level, locked, canAfford, isMaxed, onPurchase, bonus
             <Icon size={18} />
 
             <div className="flex flex-col items-center">
-                 <div className="text-[10px] font-bold">Lvl {level}</div>
+                 <div className="text-[10px] font-bold">{isMaxed ? 'Maxed' : `Lvl ${level}`}</div>
                  {!isMaxed && !locked && (
                      <div className="text-[9px] opacity-60 font-mono">{skill.spCost} SP</div>
                  )}

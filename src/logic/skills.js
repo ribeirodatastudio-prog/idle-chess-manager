@@ -200,13 +200,13 @@ export const SKILLS = [
   {
     id: 'op_tenure',
     name: 'Tenure: Theory',
-    description: 'Unlocks 1.05x Prod per level of ALL Opening Branch skills owned.',
+    description: 'Unlocks 1.05x Prod for ALL Opening Branch skills owned (Perk).',
     cost: 0,
     spCost: 10,
     costType: 'SP',
     category: 'Phase Mastery',
     parentId: 'study_opening',
-    maxLevel: 3,
+    maxLevel: 1,
     tier: 3,
     isHidden: true
   },
@@ -320,13 +320,13 @@ export const SKILLS = [
   {
     id: 'mid_tenure',
     name: 'Tenure: Application',
-    description: 'Unlocks 1.05x Prod per level of ALL Midgame Branch skills owned.',
+    description: 'Unlocks 1.05x Prod for ALL Midgame Branch skills owned (Perk).',
     cost: 0,
     spCost: 10,
     costType: 'SP',
     category: 'Phase Mastery',
     parentId: 'study_midgame',
-    maxLevel: 3,
+    maxLevel: 1,
     tier: 3,
     isHidden: true
   },
@@ -440,13 +440,13 @@ export const SKILLS = [
   {
     id: 'end_tenure',
     name: 'Tenure: History',
-    description: 'Unlocks 1.05x Prod per level of ALL Endgame Branch skills owned.',
+    description: 'Unlocks 1.05x Prod for ALL Endgame Branch skills owned (Perk).',
     cost: 0,
     spCost: 10,
     costType: 'SP',
     category: 'Phase Mastery',
     parentId: 'study_endgame',
-    maxLevel: 3,
+    maxLevel: 1,
     tier: 3,
     isHidden: true
   },
@@ -538,13 +538,13 @@ export const SKILLS = [
   {
     id: 'inst_tac_econ',
     name: 'Mercenary Work',
-    description: 'Hustle: Gain +1% (1.01x) Production per SP spent in Tactics Tree (per level).',
+    description: 'Hustle: Gain +1% (1.01x) Production per SP spent in Tactics Tree.',
     cost: 0,
     spCost: 5,
     costType: 'SP',
     category: 'Instinct Focus',
     parentId: 'instinct_tactics',
-    maxLevel: 3,
+    maxLevel: 1,
     tier: 2,
     isHidden: true
   },
@@ -616,13 +616,13 @@ export const SKILLS = [
   {
     id: 'inst_def_econ',
     name: 'Security Contracts',
-    description: 'Hustle: Gain +1% (1.01x) Production per SP spent in Defense Tree (per level).',
+    description: 'Hustle: Gain +1% (1.01x) Production per SP spent in Defense Tree.',
     cost: 0,
     spCost: 5,
     costType: 'SP',
     category: 'Instinct Focus',
     parentId: 'instinct_defense',
-    maxLevel: 3,
+    maxLevel: 1,
     tier: 2,
     isHidden: true
   },
@@ -694,13 +694,13 @@ export const SKILLS = [
   {
     id: 'inst_risk_econ',
     name: 'High Stakes Betting',
-    description: 'Hustle: Gain +1% (1.01x) Production per SP spent in Risk Tree (per level).',
+    description: 'Hustle: Gain +1% (1.01x) Production per SP spent in Risk Tree.',
     cost: 0,
     spCost: 5,
     costType: 'SP',
     category: 'Instinct Focus',
     parentId: 'instinct_risk',
-    maxLevel: 3,
+    maxLevel: 1,
     tier: 2,
     isHidden: true
   },
@@ -803,22 +803,43 @@ export const calculateTenureMultiplier = (ownedSkills) => {
     const opTenureLvl = getLevel(ownedSkills, 'op_tenure');
     if (opTenureLvl > 0) {
         const levels = sumLevels('study_opening');
-        multiplier *= Math.pow(1.05, levels * opTenureLvl);
+        multiplier *= Math.pow(1.05, levels);
     }
 
     // Midgame Tenure
     const midTenureLvl = getLevel(ownedSkills, 'mid_tenure');
     if (midTenureLvl > 0) {
         const levels = sumLevels('study_midgame');
-        multiplier *= Math.pow(1.05, levels * midTenureLvl);
+        multiplier *= Math.pow(1.05, levels);
     }
 
     // Endgame Tenure
     const endTenureLvl = getLevel(ownedSkills, 'end_tenure');
     if (endTenureLvl > 0) {
         const levels = sumLevels('study_endgame');
-        multiplier *= Math.pow(1.05, levels * endTenureLvl);
+        multiplier *= Math.pow(1.05, levels);
     }
 
     return multiplier;
+};
+
+export const calculateInstinctMultiplier = (ownedSkills) => {
+    const tacEcon = getLevel(ownedSkills, 'inst_tac_econ');
+    const defEcon = getLevel(ownedSkills, 'inst_def_econ');
+    const riskEcon = getLevel(ownedSkills, 'inst_risk_econ');
+
+    let instinctMult = 1.0;
+    if (tacEcon > 0) {
+        const sp = calculateBranchSP(ownedSkills, 'instinct_tactics');
+        instinctMult *= (1 + (0.01 * sp));
+    }
+    if (defEcon > 0) {
+        const sp = calculateBranchSP(ownedSkills, 'instinct_defense');
+        instinctMult *= (1 + (0.01 * sp));
+    }
+    if (riskEcon > 0) {
+        const sp = calculateBranchSP(ownedSkills, 'instinct_risk');
+        instinctMult *= (1 + (0.01 * sp));
+    }
+    return instinctMult;
 };

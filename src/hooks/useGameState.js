@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { calculatePassiveIncomePerSecond, calculateUpgradeCost } from '../logic/math';
-import { getSkillById, calculateTenureMultiplier, calculateBranchSP } from '../logic/skills';
+import { getSkillById, calculateTenureMultiplier, calculateBranchSP, calculateInstinctMultiplier } from '../logic/skills';
 import { TOURNAMENT_CONFIG, TIERS_PER_TOURNAMENT, MATCHES_PER_TIER } from '../logic/tournaments';
 import { GAME_MODES } from '../logic/gameModes';
 import { useOfflineProgress } from './useOfflineProgress';
@@ -134,26 +134,7 @@ export const useGameState = () => {
           skills = saved.skills;
       }
       multiplier *= calculateTenureMultiplier(skills);
-
-      // Instinct Hustle
-      const tacEcon = getLevel(skills, 'inst_tac_econ');
-      const defEcon = getLevel(skills, 'inst_def_econ');
-      const riskEcon = getLevel(skills, 'inst_risk_econ');
-
-      let instinctMult = 1.0;
-      if (tacEcon > 0) {
-          const sp = calculateBranchSP(skills, 'instinct_tactics');
-          instinctMult *= (1 + (0.01 * tacEcon * sp));
-      }
-      if (defEcon > 0) {
-          const sp = calculateBranchSP(skills, 'instinct_defense');
-          instinctMult *= (1 + (0.01 * defEcon * sp));
-      }
-      if (riskEcon > 0) {
-          const sp = calculateBranchSP(skills, 'instinct_risk');
-          instinctMult *= (1 + (0.01 * riskEcon * sp));
-      }
-      multiplier *= instinctMult;
+      multiplier *= calculateInstinctMultiplier(skills);
 
       if (saved && saved.tournament) {
           // Migration logic to get ranks safe
@@ -364,26 +345,7 @@ export const useGameState = () => {
 
   // New Multiplier Exports for UI
   const tenureMultiplier = useMemo(() => calculateTenureMultiplier(skills), [skills]);
-  const instinctMultiplier = useMemo(() => {
-    const tacEcon = getLevel(skills, 'inst_tac_econ');
-    const defEcon = getLevel(skills, 'inst_def_econ');
-    const riskEcon = getLevel(skills, 'inst_risk_econ');
-
-    let mult = 1.0;
-    if (tacEcon > 0) {
-        const sp = calculateBranchSP(skills, 'instinct_tactics');
-        mult *= (1 + (0.01 * tacEcon * sp));
-    }
-    if (defEcon > 0) {
-        const sp = calculateBranchSP(skills, 'instinct_defense');
-        mult *= (1 + (0.01 * defEcon * sp));
-    }
-    if (riskEcon > 0) {
-        const sp = calculateBranchSP(skills, 'instinct_risk');
-        mult *= (1 + (0.01 * riskEcon * sp));
-    }
-    return mult;
-  }, [skills]);
+  const instinctMultiplier = useMemo(() => calculateInstinctMultiplier(skills), [skills]);
 
   // Income Calculation (Derived)
   const totalIncomePerMinute = useMemo(() => {
@@ -453,24 +415,7 @@ export const useGameState = () => {
             income *= calculateTenureMultiplier(currentSkills);
 
             // Apply Instinct Multiplier
-            const tacEcon = getLevel(currentSkills, 'inst_tac_econ');
-            const defEcon = getLevel(currentSkills, 'inst_def_econ');
-            const riskEcon = getLevel(currentSkills, 'inst_risk_econ');
-
-            let instinctMult = 1.0;
-            if (tacEcon > 0) {
-                const sp = calculateBranchSP(currentSkills, 'instinct_tactics');
-                instinctMult *= (1 + (0.01 * tacEcon * sp));
-            }
-            if (defEcon > 0) {
-                const sp = calculateBranchSP(currentSkills, 'instinct_defense');
-                instinctMult *= (1 + (0.01 * defEcon * sp));
-            }
-            if (riskEcon > 0) {
-                const sp = calculateBranchSP(currentSkills, 'instinct_risk');
-                instinctMult *= (1 + (0.01 * riskEcon * sp));
-            }
-            income *= instinctMult;
+            income *= calculateInstinctMultiplier(currentSkills);
 
             return {
             ...prev,
@@ -616,26 +561,8 @@ export const useGameState = () => {
               const currentSkills = stateRef.current.skills;
               currentIncome *= calculateTenureMultiplier(currentSkills);
 
-              // Apply Instinct Multiplier (Prize Calculation - Logic Duplication)
-              // Ideally extract this calc, but keeping inline for now
-              const tacEcon = getLevel(currentSkills, 'inst_tac_econ');
-              const defEcon = getLevel(currentSkills, 'inst_def_econ');
-              const riskEcon = getLevel(currentSkills, 'inst_risk_econ');
-
-              let instinctMult = 1.0;
-              if (tacEcon > 0) {
-                  const sp = calculateBranchSP(currentSkills, 'instinct_tactics');
-                  instinctMult *= (1 + (0.01 * tacEcon * sp));
-              }
-              if (defEcon > 0) {
-                  const sp = calculateBranchSP(currentSkills, 'instinct_defense');
-                  instinctMult *= (1 + (0.01 * defEcon * sp));
-              }
-              if (riskEcon > 0) {
-                  const sp = calculateBranchSP(currentSkills, 'instinct_risk');
-                  instinctMult *= (1 + (0.01 * riskEcon * sp));
-              }
-              currentIncome *= instinctMult;
+              // Apply Instinct Multiplier
+              currentIncome *= calculateInstinctMultiplier(currentSkills);
 
               // Progression Logic
               let newMatch = currentRank.matchIndex + 1;
@@ -733,25 +660,8 @@ export const useGameState = () => {
       const currentSkills = stateRef.current.skills;
       income *= calculateTenureMultiplier(currentSkills);
 
-      // Apply Instinct Multiplier (Sacrifice Bonus Calc - Duplication)
-      const tacEcon = getLevel(currentSkills, 'inst_tac_econ');
-      const defEcon = getLevel(currentSkills, 'inst_def_econ');
-      const riskEcon = getLevel(currentSkills, 'inst_risk_econ');
-
-      let instinctMult = 1.0;
-      if (tacEcon > 0) {
-          const sp = calculateBranchSP(currentSkills, 'instinct_tactics');
-          instinctMult *= (1 + (0.01 * tacEcon * sp));
-      }
-      if (defEcon > 0) {
-          const sp = calculateBranchSP(currentSkills, 'instinct_defense');
-          instinctMult *= (1 + (0.01 * defEcon * sp));
-      }
-      if (riskEcon > 0) {
-          const sp = calculateBranchSP(currentSkills, 'instinct_risk');
-          instinctMult *= (1 + (0.01 * riskEcon * sp));
-      }
-      income *= instinctMult;
+      // Apply Instinct Multiplier
+      income *= calculateInstinctMultiplier(currentSkills);
 
       const bonus = income * 600; // 10 minutes
       setResources(prev => ({
