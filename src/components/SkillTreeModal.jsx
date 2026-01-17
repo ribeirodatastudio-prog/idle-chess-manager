@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { SKILLS, getSkillById, getBranchTierStatus, calculateTenureMultiplier } from '../logic/skills';
-import { Sword, Shield, Skull, Lock, CheckCircle2, Trophy, Clock } from 'lucide-react';
+import { Sword, Shield, Skull, Lock, CheckCircle2, Trophy, Clock, RefreshCw } from 'lucide-react';
 
 const getBonusText = (skill, level) => {
     if (level === 0) return null;
@@ -264,11 +264,11 @@ const ChildNode = ({ skill, level, locked, canAfford, isMaxed, onPurchase, bonus
     );
 };
 
-export const SkillTreeModal = ({ isOpen, onClose, skills, derivedStats, onPurchase }) => {
+export const SkillTreeModal = ({ isOpen, onClose, skills, derivedStats, onPurchase, onTacticalReview }) => {
     if (!isOpen) return null;
     const [activeTab, setActiveTab] = useState('study'); // 'study' | 'instinct'
 
-    const { studyPoints } = derivedStats;
+    const { studyPoints, reviewTokens } = derivedStats;
 
     // Study Skills Children
     const openingChildren = SKILLS.filter(s => s.parentId === 'study_opening');
@@ -317,6 +317,26 @@ export const SkillTreeModal = ({ isOpen, onClose, skills, derivedStats, onPurcha
                             </p>
                         </div>
                         <div className="text-right flex flex-col items-end gap-2">
+                             {/* Review Button */}
+                             <button
+                                 onClick={() => {
+                                     if (reviewTokens > 0) {
+                                         if (window.confirm("Tactical Review will reset ALL skills (SP and AP) and refund SP. This costs 1 Token. Are you sure?")) {
+                                             onTacticalReview();
+                                         }
+                                     }
+                                 }}
+                                 disabled={!reviewTokens || reviewTokens <= 0}
+                                 className={`flex items-center gap-2 px-3 py-1 rounded text-xs font-bold uppercase tracking-wider border transition-all ${
+                                     reviewTokens > 0
+                                         ? 'bg-red-900/30 border-red-500/30 text-red-300 hover:bg-red-900/50 hover:text-white cursor-pointer'
+                                         : 'bg-gray-800 border-gray-700 text-gray-500 cursor-not-allowed'
+                                 }`}
+                             >
+                                 <RefreshCw size={12} />
+                                 Tactical Review ({reviewTokens || 0}/3)
+                             </button>
+
                             <div>
                                 <div className="text-xs text-gray-500 uppercase tracking-widest">Study Points</div>
                                 <div className="text-2xl font-mono font-bold text-blue-400">{studyPoints || 0}</div>

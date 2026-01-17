@@ -7,9 +7,114 @@ import { LogsPanel } from './components/LogsPanel';
 import { SkillsPanel, SkillsHeader } from './components/SkillsPanel';
 import { OfflineModal } from './components/OfflineModal';
 import PuzzleRoom from './components/PuzzleRoom';
+import { useIsMobile } from './hooks/useIsMobile';
+import { MobileLayout } from './components/MobileLayout';
+
+const DesktopLayout = ({
+    state,
+    derivedStats,
+    actions,
+    simulationState,
+    handleStartTournament,
+    logs,
+    activeTab,
+    setActiveTab
+}) => {
+  return (
+    <div className="min-h-screen bg-black text-gray-100 font-sans selection:bg-blue-500 selection:text-white p-2 sm:p-4 overflow-hidden">
+      <div className="max-w-7xl mx-auto h-[95vh] grid grid-cols-1 lg:grid-cols-12 gap-4">
+
+        {/* Left Panel: Upgrades & Skills (3 cols) */}
+        <div className="lg:col-span-3 h-full flex flex-col overflow-hidden bg-gray-900 rounded-xl border border-gray-800 shadow-2xl">
+           <div className="flex border-b border-gray-700 shrink-0">
+               <button
+                  onClick={() => setActiveTab('stats')}
+                  className={`flex-1 py-3 font-bold text-center transition-colors ${activeTab === 'stats' ? 'bg-gray-800 text-blue-400 border-b-2 border-blue-400' : 'text-gray-500 hover:bg-gray-800/50'}`}
+               >
+                   Stats
+               </button>
+               <button
+                  onClick={() => setActiveTab('skills')}
+                  className={`flex-1 py-3 font-bold text-center transition-colors ${activeTab === 'skills' ? 'bg-gray-800 text-purple-400 border-b-2 border-purple-400' : 'text-gray-500 hover:bg-gray-800/50'}`}
+               >
+                   Skills
+               </button>
+           </div>
+
+           {/* Sticky Header Area */}
+           <div className="p-4 pb-0 bg-gray-900 z-10 shrink-0">
+               {activeTab === 'stats' ? (
+                   <StatsHeader
+                        resources={state.resources}
+                        playerElo={derivedStats.playerElo}
+                        tournamentIndex={derivedStats.cumulativeTournamentIndex}
+                        tiersCleared={derivedStats.cumulativeTiersCleared}
+                        puzzleMultiplier={state.puzzleStats.multiplier}
+                        tenureMultiplier={derivedStats.tenureMultiplier}
+                        instinctMultiplier={derivedStats.instinctMultiplier}
+                        totalIncome={derivedStats.totalIncomePerMinute}
+                   />
+               ) : (
+                   <SkillsHeader derivedStats={derivedStats} />
+               )}
+           </div>
+
+           {/* Scrollable Content Area */}
+           <div className="flex-1 overflow-y-auto pb-20">
+               {activeTab === 'stats' ? (
+                   <>
+                        <StatsPanel
+                            stats={state.stats}
+                            resources={state.resources}
+                            onUpgrade={actions.upgradeStat}
+                        />
+                        <PuzzleRoom state={state} actions={actions} />
+                   </>
+               ) : (
+                    <SkillsPanel
+                        skills={state.skills}
+                        derivedStats={derivedStats}
+                        onPurchase={actions.purchaseSkill}
+                        onTacticalReview={actions.tacticalReview}
+                    />
+               )}
+           </div>
+        </div>
+
+        {/* Center Panel: Arena (6 cols) */}
+        <div className="lg:col-span-6 h-full overflow-hidden">
+          <ArenaPanel
+            tournament={state.tournament}
+            simulationState={simulationState}
+            onStartTournament={handleStartTournament}
+          />
+        </div>
+
+        {/* Right Panel: Logs (3 cols) */}
+        <div className="lg:col-span-3 h-full overflow-hidden">
+          <LogsPanel logs={logs} />
+        </div>
+
+      </div>
+
+      {/* Footer / Version */}
+      <div className="text-center text-gray-800 text-xs fixed bottom-1 left-0 right-0 pointer-events-none">
+        Chess Career Idle v0.3 • Game Modes Added
+      </div>
+
+      <OfflineModal
+        isOpen={state.isOfflineLoading || !!state.offlineReport}
+        isLoading={state.isOfflineLoading}
+        data={state.offlineReport}
+        onClaim={actions.claimOfflineReward}
+      />
+    </div>
+  );
+};
 
 function App() {
   const { state, derivedStats, actions } = useGameState();
+  const isMobile = useIsMobile();
   const [activeTab, setActiveTab] = useState('stats'); // 'stats' or 'skills'
   
   const [simulationState, setSimulationState] = useState({
@@ -168,93 +273,39 @@ function App() {
     };
   }, [state.tournament.active, state.tournament.opponentStats, state.tournament.activeMode, state.stats, state.skills, actions]); // Dependencies
 
+  // Render logic
+  if (isMobile) {
+      return (
+          <>
+            <MobileLayout
+                state={state}
+                derivedStats={derivedStats}
+                actions={actions}
+                simulationState={simulationState}
+                onStartTournament={handleStartTournament}
+                logs={logs}
+            />
+            <OfflineModal
+                isOpen={state.isOfflineLoading || !!state.offlineReport}
+                isLoading={state.isOfflineLoading}
+                data={state.offlineReport}
+                onClaim={actions.claimOfflineReward}
+            />
+          </>
+      );
+  }
+
   return (
-    <div className="min-h-screen bg-black text-gray-100 font-sans selection:bg-blue-500 selection:text-white p-2 sm:p-4 overflow-hidden">
-      <div className="max-w-7xl mx-auto h-[95vh] grid grid-cols-1 lg:grid-cols-12 gap-4">
-        
-        {/* Left Panel: Upgrades & Skills (3 cols) */}
-        <div className="lg:col-span-3 h-full flex flex-col overflow-hidden bg-gray-900 rounded-xl border border-gray-800 shadow-2xl">
-           <div className="flex border-b border-gray-700 shrink-0">
-               <button 
-                  onClick={() => setActiveTab('stats')}
-                  className={`flex-1 py-3 font-bold text-center transition-colors ${activeTab === 'stats' ? 'bg-gray-800 text-blue-400 border-b-2 border-blue-400' : 'text-gray-500 hover:bg-gray-800/50'}`}
-               >
-                   Stats
-               </button>
-               <button 
-                  onClick={() => setActiveTab('skills')}
-                  className={`flex-1 py-3 font-bold text-center transition-colors ${activeTab === 'skills' ? 'bg-gray-800 text-purple-400 border-b-2 border-purple-400' : 'text-gray-500 hover:bg-gray-800/50'}`}
-               >
-                   Skills
-               </button>
-           </div>
-           
-           {/* Sticky Header Area */}
-           <div className="p-4 pb-0 bg-gray-900 z-10 shrink-0">
-               {activeTab === 'stats' ? (
-                   <StatsHeader
-                        resources={state.resources}
-                        playerElo={derivedStats.playerElo}
-                        tournamentIndex={derivedStats.cumulativeTournamentIndex}
-                        tiersCleared={derivedStats.cumulativeTiersCleared}
-                        puzzleMultiplier={state.puzzleStats.multiplier}
-                        tenureMultiplier={derivedStats.tenureMultiplier}
-                        instinctMultiplier={derivedStats.instinctMultiplier}
-                   />
-               ) : (
-                   <SkillsHeader derivedStats={derivedStats} />
-               )}
-           </div>
-
-           {/* Scrollable Content Area */}
-           <div className="flex-1 overflow-y-auto pb-20">
-               {activeTab === 'stats' ? (
-                   <>
-                        <StatsPanel
-                            stats={state.stats}
-                            resources={state.resources}
-                            onUpgrade={actions.upgradeStat}
-                        />
-                        <PuzzleRoom state={state} actions={actions} />
-                   </>
-               ) : (
-                    <SkillsPanel
-                        skills={state.skills}
-                        derivedStats={derivedStats}
-                        onPurchase={actions.purchaseSkill}
-                    />
-               )}
-           </div>
-        </div>
-
-        {/* Center Panel: Arena (6 cols) */}
-        <div className="lg:col-span-6 h-full overflow-hidden">
-          <ArenaPanel 
-            tournament={state.tournament}
-            simulationState={simulationState}
-            onStartTournament={handleStartTournament}
-          />
-        </div>
-
-        {/* Right Panel: Logs (3 cols) */}
-        <div className="lg:col-span-3 h-full overflow-hidden">
-          <LogsPanel logs={logs} />
-        </div>
-
-      </div>
-      
-      {/* Footer / Version */}
-      <div className="text-center text-gray-800 text-xs fixed bottom-1 left-0 right-0 pointer-events-none">
-        Chess Career Idle v0.3 • Game Modes Added
-      </div>
-
-      <OfflineModal
-        isOpen={state.isOfflineLoading || !!state.offlineReport}
-        isLoading={state.isOfflineLoading}
-        data={state.offlineReport}
-        onClaim={actions.claimOfflineReward}
-      />
-    </div>
+    <DesktopLayout
+        state={state}
+        derivedStats={derivedStats}
+        actions={actions}
+        simulationState={simulationState}
+        handleStartTournament={handleStartTournament}
+        logs={logs}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+    />
   );
 }
 

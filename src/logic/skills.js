@@ -532,8 +532,23 @@ export const SKILLS = [
     category: 'Instinct Focus',
     parentId: 'instinct_tactics',
     maxLevel: 3,
+    tier: 2,
     isHidden: true
   },
+  {
+    id: 'inst_tac_econ',
+    name: 'Mercenary Work',
+    description: 'Hustle: Gain +1% (1.01x) Production per SP spent in Tactics Tree (per level).',
+    cost: 0,
+    spCost: 5,
+    costType: 'SP',
+    category: 'Instinct Focus',
+    parentId: 'instinct_tactics',
+    maxLevel: 3,
+    tier: 2,
+    isHidden: true
+  },
+  // NEW Tier 3 Instinct Tactics Skills
   {
     id: 'inst_tac_scale',
     name: 'Battle Flow',
@@ -544,18 +559,7 @@ export const SKILLS = [
     category: 'Instinct Focus',
     parentId: 'instinct_tactics',
     maxLevel: 3,
-    isHidden: true
-  },
-  {
-    id: 'inst_tac_econ',
-    name: 'Mercenary Work',
-    description: 'Hustle: Gain +1% (1.01x) Production per SP spent in Tactics Tree (per level).',
-    cost: 0,
-    spCost: 10,
-    costType: 'SP',
-    category: 'Instinct Focus',
-    parentId: 'instinct_tactics',
-    maxLevel: 3,
+    tier: 3,
     isHidden: true
   },
   // Tier 2: Instinct Defense Tree
@@ -606,8 +610,23 @@ export const SKILLS = [
     category: 'Instinct Focus',
     parentId: 'instinct_defense',
     maxLevel: 3,
+    tier: 2,
     isHidden: true
   },
+  {
+    id: 'inst_def_econ',
+    name: 'Security Contracts',
+    description: 'Hustle: Gain +1% (1.01x) Production per SP spent in Defense Tree (per level).',
+    cost: 0,
+    spCost: 5,
+    costType: 'SP',
+    category: 'Instinct Focus',
+    parentId: 'instinct_defense',
+    maxLevel: 3,
+    tier: 2,
+    isHidden: true
+  },
+  // NEW Tier 3 Instinct Defense Skills
   {
     id: 'inst_def_scale',
     name: 'Entrenchment',
@@ -618,18 +637,7 @@ export const SKILLS = [
     category: 'Instinct Focus',
     parentId: 'instinct_defense',
     maxLevel: 3,
-    isHidden: true
-  },
-  {
-    id: 'inst_def_econ',
-    name: 'Security Contracts',
-    description: 'Hustle: Gain +1% (1.01x) Production per SP spent in Defense Tree (per level).',
-    cost: 0,
-    spCost: 10,
-    costType: 'SP',
-    category: 'Instinct Focus',
-    parentId: 'instinct_defense',
-    maxLevel: 3,
+    tier: 3,
     isHidden: true
   },
   // Tier 2: Instinct Risk Tree
@@ -680,8 +688,23 @@ export const SKILLS = [
     category: 'Instinct Focus',
     parentId: 'instinct_risk',
     maxLevel: 3,
+    tier: 2,
     isHidden: true
   },
+  {
+    id: 'inst_risk_econ',
+    name: 'High Stakes Betting',
+    description: 'Hustle: Gain +1% (1.01x) Production per SP spent in Risk Tree (per level).',
+    cost: 0,
+    spCost: 5,
+    costType: 'SP',
+    category: 'Instinct Focus',
+    parentId: 'instinct_risk',
+    maxLevel: 3,
+    tier: 2,
+    isHidden: true
+  },
+  // NEW Tier 3 Instinct Risk Skills
   {
     id: 'inst_sac_scale',
     name: 'Rising Stakes',
@@ -692,18 +715,7 @@ export const SKILLS = [
     category: 'Instinct Focus',
     parentId: 'instinct_risk',
     maxLevel: 3,
-    isHidden: true
-  },
-  {
-    id: 'inst_risk_econ',
-    name: 'High Stakes Betting',
-    description: 'Hustle: Gain +1% (1.01x) Production per SP spent in Risk Tree (per level).',
-    cost: 0,
-    spCost: 10,
-    costType: 'SP',
-    category: 'Instinct Focus',
-    parentId: 'instinct_risk',
-    maxLevel: 3,
+    tier: 3,
     isHidden: true
   },
   // Standalone

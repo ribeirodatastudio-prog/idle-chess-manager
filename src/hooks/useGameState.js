@@ -11,7 +11,8 @@ const STORAGE_KEY = 'chess-career-save-v2';
 
 const INITIAL_RESOURCES = {
   studyTime: 0,
-  studyPoints: 0
+  studyPoints: 0,
+  reviewTokens: 1 // Start with 1 token
 };
 
 const INITIAL_STATS = {
@@ -361,6 +362,14 @@ export const useGameState = () => {
     return 100 + totalLevels;
   }, [stats]);
 
+  // Income Calculation (Derived)
+  const totalIncomePerMinute = useMemo(() => {
+      const rawBase = 1 + cumulativeTournamentIndex;
+      const tierMultiplier = Math.pow(1.01, cumulativeTiersCleared);
+      const puzzleMult = puzzleStats.multiplier || 1.0;
+      return rawBase * tierMultiplier * puzzleMult * tenureMultiplier * instinctMultiplier;
+  }, [cumulativeTournamentIndex, cumulativeTiersCleared, puzzleStats.multiplier, tenureMultiplier, instinctMultiplier]);
+
   // NEW SKILL POINT LOGIC
   const totalAbilityPoints = useMemo(() => {
     const getIdx = (r) => (typeof r === 'object' ? r.tournamentIndex : 0);
@@ -630,6 +639,32 @@ export const useGameState = () => {
               }
               currentIncome *= instinctMult;
 
+              // Progression Logic
+              let newMatch = currentRank.matchIndex + 1;
+              let newTier = currentRank.tierIndex;
+              let newTourn = currentRank.tournamentIndex;
+              let tokenAward = 0;
+
+              if (newMatch >= MATCHES_PER_TIER) {
+                  newMatch = 0;
+                  newTier++;
+                  if (newTier >= TIERS_PER_TOURNAMENT) {
+                      newTier = 0;
+                      newTourn++;
+
+                      // Award Review Token on Tournament Advance
+                      if (newTourn > currentRank.tournamentIndex) {
+                          tokenAward = 1;
+                      }
+
+                      if (newTourn >= TOURNAMENT_CONFIG.length) {
+                          newTourn = TOURNAMENT_CONFIG.length - 1; // Cap at max
+                          newTier = TIERS_PER_TOURNAMENT - 1; // Cap at max tier
+                          newMatch = MATCHES_PER_TIER - 1; // Cap at max match
+                      }
+                  }
+              }
+
               // Determine prize
               let prizeSeconds = 60; // Base Match Win (1 minute)
               let spAward = 0;
@@ -643,27 +678,9 @@ export const useGameState = () => {
               setResources(res => ({
                   ...res,
                   studyTime: res.studyTime + (currentIncome * prizeSeconds),
-                  studyPoints: (res.studyPoints || 0) + spAward
+                  studyPoints: (res.studyPoints || 0) + spAward,
+                  reviewTokens: Math.min(3, (res.reviewTokens || 0) + tokenAward)
               }));
-
-              // Progression Logic
-              let newMatch = currentRank.matchIndex + 1;
-              let newTier = currentRank.tierIndex;
-              let newTourn = currentRank.tournamentIndex;
-
-              if (newMatch >= MATCHES_PER_TIER) {
-                  newMatch = 0;
-                  newTier++;
-                  if (newTier >= TIERS_PER_TOURNAMENT) {
-                      newTier = 0;
-                      newTourn++;
-                      if (newTourn >= TOURNAMENT_CONFIG.length) {
-                          newTourn = TOURNAMENT_CONFIG.length - 1; // Cap at max
-                          newTier = TIERS_PER_TOURNAMENT - 1; // Cap at max tier
-                          newMatch = MATCHES_PER_TIER - 1; // Cap at max match
-                      }
-                  }
-              }
 
               return {
                   ...prev,
@@ -825,6 +842,37 @@ export const useGameState = () => {
     return result;
   }, [activePuzzle, stats, puzzleStats]);
 
+  const tacticalReview = useCallback(() => {
+      const currentRes = stateRef.current.resources;
+      const currentSkills = stateRef.current.skills;
+
+      if (!currentRes.reviewTokens || currentRes.reviewTokens <= 0) return;
+
+      // Refund SP Calculation
+      let totalRefund = 0;
+      Object.keys(currentSkills).forEach(skillId => {
+          const skill = getSkillById(skillId);
+          if (skill && skill.costType === 'SP') {
+              const level = getLevel(currentSkills, skillId);
+              totalRefund += (skill.spCost * level);
+          }
+      });
+
+      // Reset Skills
+      setSkills(INITIAL_SKILLS);
+
+      // Update Resources
+      setResources(prev => ({
+          ...prev,
+          studyPoints: (prev.studyPoints || 0) + totalRefund,
+          reviewTokens: prev.reviewTokens - 1
+      }));
+
+      // Force Save
+      saveGame();
+
+  }, [saveGame]);
+
   // Debug Actions
   const addResource = useCallback((amount) => {
       setResources(prev => ({ ...prev, studyTime: prev.studyTime + amount }));
@@ -850,8 +898,9 @@ export const useGameState = () => {
       resetGame,
       claimOfflineReward,
       triggerSacrificeBonus,
-      solvePuzzle
-  }), [upgradeStat, purchaseSkill, startTournament, endTournament, addResource, resetGame, claimOfflineReward, triggerSacrificeBonus, solvePuzzle]);
+      solvePuzzle,
+      tacticalReview
+  }), [upgradeStat, purchaseSkill, startTournament, endTournament, addResource, resetGame, claimOfflineReward, triggerSacrificeBonus, solvePuzzle, tacticalReview]);
 
   const derivedStats = {
       playerElo,
@@ -861,8 +910,10 @@ export const useGameState = () => {
       cumulativeTournamentIndex, // Export for UI
       cumulativeTiersCleared,
       studyPoints: resources.studyPoints || 0,
+      reviewTokens: resources.reviewTokens || 0,
       tenureMultiplier,
-      instinctMultiplier
+      instinctMultiplier,
+      totalIncomePerMinute
   };
 
   const state = {
