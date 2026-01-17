@@ -64,26 +64,93 @@ const getSacrificeCost = (targetLevel) => {
   return costAt300 * Math.pow(1.20, targetLevel - 300);
 };
 
-export const calculateUpgradeCost = (currentLevel, hasPrepFiles = false, statName = '') => {
-  // Determine Target Level (Cost is for the NEXT level)
-  // If currentLevel is 1, we are buying Level 2.
-  // Note: Handle currentLevel = 0 case (Buying Level 1)
-  const targetLevel = currentLevel + 1;
+// Group Definitions
+const GROUPS = {
+    opening: 'phase',
+    midgame: 'phase',
+    endgame: 'phase',
+    tactics: 'instinct',
+    defense: 'instinct',
+    sacrifices: null // Special, no tax
+};
 
-  let cost = 0;
+// Helper to calculate foreign levels
+const getForeignLevels = (statName, allStats) => {
+    const group = GROUPS[statName];
+    if (!group) return 0;
 
-  if (statName === 'sacrifices') {
-      cost = getSacrificeCost(targetLevel);
-  } else {
-      cost = getStandardCost(targetLevel);
-  }
-  
-  // Prep Files Discount (Category A)
-  if (hasPrepFiles && statName === 'opening') {
-    cost *= 0.8;
-  }
-  
-  return cost;
+    let foreign = 0;
+    // Iterate over known stats in that group
+    Object.keys(GROUPS).forEach(key => {
+        if (GROUPS[key] === group && key !== statName) {
+            foreign += (allStats[key] || 0);
+        }
+    });
+    return foreign;
+};
+
+// Helper to get Tax Rate based on Target Skill's Current Tier (Level)
+const getTaxRate = (level) => {
+    // Note: level passed here is the CURRENT OWNED LEVEL (not target)
+    // "If Target is Tier 1" implies current status.
+    // Tier 1: 0-500
+    // Tier 2: 501-10000
+    // Tier 3: 10001+
+
+    if (level <= 500) return 1.015;
+    if (level <= 10000) return 1.04;
+    return 1.075;
+};
+
+export const calculateCostBreakdown = (currentLevel, allStats = {}, statName = '') => {
+    const targetLevel = currentLevel + 1;
+    let baseCost = 0;
+
+    if (statName === 'sacrifices') {
+        baseCost = getSacrificeCost(targetLevel);
+    } else {
+        baseCost = getStandardCost(targetLevel);
+    }
+
+    // Focus Tax Logic
+    let multiplier = 1.0;
+    let foreignLevels = 0;
+
+    // Only apply tax if it has a group (Sacrifice is null)
+    if (GROUPS[statName]) {
+        foreignLevels = getForeignLevels(statName, allStats);
+
+        // Tax Rate based on *Current* Level (the Tier you are in)
+        const taxRate = getTaxRate(currentLevel);
+
+        multiplier = Math.pow(taxRate, foreignLevels);
+
+        // Safety Cap
+        if (multiplier > 1e50) {
+            multiplier = 1e50;
+        }
+    }
+
+    const totalCost = baseCost * multiplier;
+
+    return {
+        baseCost,
+        multiplier,
+        foreignLevels,
+        totalCost,
+        isCapped: multiplier >= 1e50
+    };
+};
+
+// Wrapper for backward compatibility (and simple usage)
+export const calculateUpgradeCost = (currentLevel, allStats = {}, statName = '') => {
+    // Backward compatibility for old calls: calculateUpgradeCost(level, boolean, statName)
+    let stats = allStats;
+    if (typeof allStats === 'boolean') {
+        stats = {};
+    }
+
+    return calculateCostBreakdown(currentLevel, stats, statName).totalCost;
 };
 
 export const calculateStatPower = (level) => {

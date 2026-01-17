@@ -1,5 +1,5 @@
 import React from 'react';
-import { calculateUpgradeCost } from '../logic/math';
+import { calculateCostBreakdown } from '../logic/math';
 import { formatNumber } from '../logic/format';
 import { Sword, Shield, Skull, BookOpen, Disc, Flag } from 'lucide-react';
 import { useRepeatingPress } from '../hooks/useRepeatingPress';
@@ -13,22 +13,20 @@ const STAT_CONFIG = {
   defense: { label: 'Defense', icon: Shield }
 };
 
-const StatCard = ({ statKey, level, resources, onUpgrade }) => {
+const StatCard = ({ statKey, level, resources, onUpgrade, allStats }) => {
   const isSacrifice = statKey === 'sacrifices';
   const isMaxed = isSacrifice && level >= 500;
 
-  const cost = calculateUpgradeCost(level, false, statKey);
+  // Calculate Breakdown
+  const { baseCost, multiplier, foreignLevels, totalCost } = calculateCostBreakdown(level, allStats, statKey);
+
+  const cost = totalCost;
   const canAfford = !isMaxed && resources.studyTime >= cost;
 
   const displayLevel = isSacrifice ? `${(level * 0.2).toFixed(1)}%` : level;
 
   const { icon: Icon, label } = STAT_CONFIG[statKey];
 
-  // Specific check for the 3 stats that need to replace label with icon
-  // The user said "Replace text labels 'Tactics', 'Defense', 'Sacrifice' with icons"
-  // But purely replacing text with icon might be confusing without tooltip or context?
-  // I will show Icon prominently.
-  // For phases, I'll show Label.
   const showIcon = ['tactics', 'sacrifices', 'defense'].includes(statKey);
 
   const pressHandlers = useRepeatingPress(() => onUpgrade(statKey));
@@ -73,6 +71,28 @@ const StatCard = ({ statKey, level, resources, onUpgrade }) => {
           }`}>
             {formatNumber(cost)}
           </span>
+      )}
+
+      {/* Focus Tax Tooltip */}
+      {!isMaxed && multiplier > 1.001 && (
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-gray-900 border border-red-500/30 rounded-lg p-2 z-50 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-xl">
+            <div className="text-[10px] text-gray-400 font-mono space-y-1 text-center">
+                <div className="text-white font-bold mb-1">Cost Breakdown</div>
+                <div className="flex justify-between">
+                    <span>Base:</span>
+                    <span className="text-white">{formatNumber(baseCost)}</span>
+                </div>
+                <div className="h-px bg-gray-800 my-1"></div>
+                <div className="text-red-400 text-[9px] leading-tight mb-1">
+                    Focus Penalty (x{formatNumber(multiplier)})
+                </div>
+                <div className="text-gray-500 text-[9px] italic">
+                    Due to {foreignLevels} levels in other paths
+                </div>
+            </div>
+             {/* Arrow */}
+            <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+        </div>
       )}
     </button>
   );
@@ -147,6 +167,7 @@ export const StatsPanel = ({ stats, resources, onUpgrade }) => {
             level={stats[key]}
             resources={resources}
             onUpgrade={onUpgrade}
+            allStats={stats}
           />
         ))}
       </div>
@@ -158,7 +179,8 @@ export const StatsPanel = ({ stats, resources, onUpgrade }) => {
             statKey={key} 
             level={stats[key]} 
             resources={resources} 
-            onUpgrade={onUpgrade} 
+            onUpgrade={onUpgrade}
+            allStats={stats}
           />
         ))}
       </div>
