@@ -1,6 +1,7 @@
 import { STATS } from './math.js';
 import { getOpponentIdentity } from './identity.js';
 import { TOURNAMENT_CONFIG } from './tournaments.js';
+import { OPPONENTS } from '../data/opponents.js';
 
 export const PHASES = {
   OPENING: { start: 1, end: 10, name: 'Opening' },
@@ -100,77 +101,42 @@ export const generateOpponentStats = (rankData) => {
 
   const targetElo = Math.floor(baseElo * multiplier);
 
-  // Total Stats Sum = Elo * 1.35 (Budget Increase)
-  let totalStats = Math.floor(targetElo * 1.35);
+  // ELO Parity: Total Stats Sum MUST match targetElo exactly.
+  // No hidden 1.35x multiplier.
+  let totalStats = targetElo;
   
   // Ensure minimum stats
   const numStats = STATS.length;
   if (totalStats < numStats) totalStats = numStats;
 
-  // Distribute Stats
+  // Select Random Archetype
+  const archetype = OPPONENTS[Math.floor(Math.random() * OPPONENTS.length)];
+
   const stats = {
-    opening: 1,
-    midgame: 1,
-    endgame: 1,
-    tactics: 1,
-    sacrifices: 1,
-    defense: 1
+    opening: 0,
+    midgame: 0,
+    endgame: 0,
+    tactics: 0,
+    sacrifices: 0,
+    defense: 0
   };
-  
-  let remainingPoints = totalStats - numStats;
-  
-  // Optimization: Bulk Distribution for large numbers
-  // Reserve a buffer for randomness to ensure 'Identity' logic still works
-  const BUFFER = 1000;
 
-  if (remainingPoints > BUFFER) {
-      const bulkPoints = remainingPoints - BUFFER;
-      const perStat = Math.floor(bulkPoints / numStats);
+  // Allocation Logic
+  const skill1Val = Math.floor(totalStats * 0.35);
+  const skill2Val = Math.floor(totalStats * 0.30);
 
-      if (perStat > 0) {
-          STATS.forEach(key => {
-              stats[key] += perStat;
-          });
-          remainingPoints -= (perStat * numStats);
-      }
-  }
+  stats[archetype.skill1] += skill1Val;
+  stats[archetype.skill2] += skill2Val;
 
-  // Random Distribution (Remaining Buffer)
+  let remainingPoints = totalStats - skill1Val - skill2Val;
 
-  // Optimization: Use Normal Approximation for large buffers (>50)
-  // This avoids O(N) loop (approx 1000 iterations) and replaces it with O(STATS) logic.
-  if (remainingPoints > 50) {
-      for (let i = 0; i < numStats - 1; i++) {
-          if (remainingPoints <= 0) break;
+  // Distribute remainder randomly among the OTHER 4 skills
+  const otherSkills = STATS.filter(s => s !== archetype.skill1 && s !== archetype.skill2);
 
-          const key = STATS[i];
-          const p = 1.0 / (numStats - i);
-
-          // Multinomial approximation using Normal distribution
-          const mean = remainingPoints * p;
-          const stdDev = Math.sqrt(remainingPoints * p * (1.0 - p));
-
-          let val = Math.round(randomNormal(mean, stdDev));
-
-          // Clamp to ensure validity
-          val = Math.max(0, Math.min(remainingPoints, val));
-
-          stats[key] += val;
-          remainingPoints -= val;
-      }
-
-      // Assign remainder to the last stat
-      if (remainingPoints > 0) {
-          stats[STATS[numStats - 1]] += remainingPoints;
-          remainingPoints = 0;
-      }
-  }
-
-  // Fallback: Standard Random Distribution (Small Buffer)
   while (remainingPoints > 0) {
-    const randomStat = STATS[Math.floor(Math.random() * numStats)];
-    stats[randomStat]++;
-    remainingPoints--;
+      const randomStat = otherSkills[Math.floor(Math.random() * otherSkills.length)];
+      stats[randomStat]++;
+      remainingPoints--;
   }
 
   // Smart Overflow Redistribution (Sacrifice Cap > 500)
@@ -190,14 +156,19 @@ export const generateOpponentStats = (rankData) => {
           }
       });
 
-      // If found (should always be true unless all others are 0?), add overflow
       if (maxKey) {
           stats[maxKey] += overflow;
       }
   }
 
   // Identity
-  const identity = getOpponentIdentity(stats);
+  // Get color from logic (highest stat), but override Title and Hint from Archetype.
+  const generatedIdentity = getOpponentIdentity(stats);
+  const identity = {
+      title: archetype.id,
+      hint: archetype.tooltip,
+      color: generatedIdentity.color
+  };
   
   return {
       stats,
