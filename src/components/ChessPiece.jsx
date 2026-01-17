@@ -362,7 +362,7 @@ const ChessPiece = ({ piece = 'p' }) => {
         style: { strokeLinecap: 'butt' } }),
       React.createElement('path', {
         d: 'M 14,29.5 L 14,16.5 L 31,16.5 L 31,29.5 L 14,29.5 z ',
-        style: { strokeLinecap: 'butt', strokLlinejoin: 'miter' } }),
+        style: { strokeLinecap: 'butt', strokeLinejoin: 'miter' } }),
       React.createElement('path', {
         d: 'M 14,16.5 L 11,14 L 34,14 L 31,16.5 L 14,16.5 z ',
         style: { strokeLinecap: 'butt' } }),

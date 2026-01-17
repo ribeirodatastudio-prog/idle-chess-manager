@@ -362,6 +362,29 @@ export const useGameState = () => {
     return 100 + totalLevels;
   }, [stats]);
 
+  // New Multiplier Exports for UI
+  const tenureMultiplier = useMemo(() => calculateTenureMultiplier(skills), [skills]);
+  const instinctMultiplier = useMemo(() => {
+    const tacEcon = getLevel(skills, 'inst_tac_econ');
+    const defEcon = getLevel(skills, 'inst_def_econ');
+    const riskEcon = getLevel(skills, 'inst_risk_econ');
+
+    let mult = 1.0;
+    if (tacEcon > 0) {
+        const sp = calculateBranchSP(skills, 'instinct_tactics');
+        mult *= (1 + (0.01 * tacEcon * sp));
+    }
+    if (defEcon > 0) {
+        const sp = calculateBranchSP(skills, 'instinct_defense');
+        mult *= (1 + (0.01 * defEcon * sp));
+    }
+    if (riskEcon > 0) {
+        const sp = calculateBranchSP(skills, 'instinct_risk');
+        mult *= (1 + (0.01 * riskEcon * sp));
+    }
+    return mult;
+  }, [skills]);
+
   // Income Calculation (Derived)
   const totalIncomePerMinute = useMemo(() => {
       const rawBase = 1 + cumulativeTournamentIndex;
@@ -389,29 +412,6 @@ export const useGameState = () => {
   }, [skills]);
 
   const availableAbilityPoints = totalAbilityPoints - usedAbilityPoints;
-
-  // New Multiplier Exports for UI
-  const tenureMultiplier = useMemo(() => calculateTenureMultiplier(skills), [skills]);
-  const instinctMultiplier = useMemo(() => {
-    const tacEcon = getLevel(skills, 'inst_tac_econ');
-    const defEcon = getLevel(skills, 'inst_def_econ');
-    const riskEcon = getLevel(skills, 'inst_risk_econ');
-
-    let mult = 1.0;
-    if (tacEcon > 0) {
-        const sp = calculateBranchSP(skills, 'instinct_tactics');
-        mult *= (1 + (0.01 * tacEcon * sp));
-    }
-    if (defEcon > 0) {
-        const sp = calculateBranchSP(skills, 'instinct_defense');
-        mult *= (1 + (0.01 * defEcon * sp));
-    }
-    if (riskEcon > 0) {
-        const sp = calculateBranchSP(skills, 'instinct_risk');
-        mult *= (1 + (0.01 * riskEcon * sp));
-    }
-    return mult;
-  }, [skills]);
 
   // Passive Income Loop
   useEffect(() => {
