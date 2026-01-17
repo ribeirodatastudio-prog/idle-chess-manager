@@ -7,6 +7,7 @@ import PuzzleRoom from './PuzzleRoom';
 import { Sword, BarChart2, GraduationCap, ScrollText, Settings, X } from 'lucide-react';
 import { formatNumber } from '../logic/format';
 import { useLongPress } from '../hooks/useLongPress';
+import { SettingsModal } from './SettingsModal';
 
 export const MobileLayout = ({
     state,
@@ -22,11 +23,6 @@ export const MobileLayout = ({
     const [showMultipliers, setShowMultipliers] = useState(false);
     const [settingsOpen, setSettingsOpen] = useState(false);
 
-    // Reset Logic States
-    const [resetStep, setResetStep] = useState('idle'); // 'idle', 'confirm', 'math'
-    const [mathProblem, setMathProblem] = useState(null);
-    const [userAnswer, setUserAnswer] = useState('');
-
     // Helper for Income Calculation
     const { playerElo, totalIncomePerMinute, cumulativeTournamentIndex, cumulativeTiersCleared, tenureMultiplier, instinctMultiplier } = derivedStats;
     const { resources, puzzleStats } = state;
@@ -38,48 +34,6 @@ export const MobileLayout = ({
 
     // Long Press Handlers
     const longPressHandlers = useLongPress(() => setShowMultipliers(true), () => {}, { delay: 500 });
-
-    // Reset Flow Handlers
-    const startResetFlow = () => setResetStep('confirm');
-
-    const confirmReset = () => {
-        // Generate Math Problem
-        const a = Math.floor(Math.random() * 90) + 10;
-        const b = Math.floor(Math.random() * 90) + 10;
-        const isAdd = Math.random() > 0.5;
-
-        setMathProblem({
-            text: `${a} ${isAdd ? '+' : '-'} ${b}`,
-            answer: isAdd ? a + b : a - b
-        });
-        setResetStep('math');
-        setUserAnswer('');
-    };
-
-    const submitMathAnswer = () => {
-        if (userAnswer.trim().toLowerCase() === 'dev') {
-            actions.enableDevMode();
-            alert('Dev Mode Enabled: Infinite Study Time');
-            setSettingsOpen(false);
-            setResetStep('idle');
-            return;
-        }
-
-        if (parseInt(userAnswer) === mathProblem.answer) {
-            actions.resetGame();
-            setSettingsOpen(false);
-            setResetStep('idle');
-        } else {
-            alert('Incorrect answer. Reset cancelled.');
-            setResetStep('idle');
-            setSettingsOpen(false); // Close everything on fail to punish/reset flow
-        }
-    };
-
-    const closeSettings = () => {
-        setSettingsOpen(false);
-        setResetStep('idle');
-    };
 
     const renderContent = () => {
         switch (activeTab) {
@@ -237,90 +191,12 @@ export const MobileLayout = ({
             )}
 
             {/* Settings Modal (Overlay) */}
-            {settingsOpen && (
-                <div
-                    className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6"
-                    onClick={closeSettings}
-                >
-                    <div className="bg-gray-900 border border-gray-700 rounded-xl p-5 w-full max-w-sm shadow-2xl text-center" onClick={e => e.stopPropagation()}>
-
-                        {/* Header */}
-                        <div className="flex justify-between items-center mb-6">
-                            <span className="text-lg font-bold text-white">Settings</span>
-                            <button onClick={closeSettings} className="text-gray-500 hover:text-white">
-                                <X size={20} />
-                            </button>
-                        </div>
-
-                        {/* Step 1: Menu */}
-                        {resetStep === 'idle' && (
-                            <div className="space-y-4">
-                                <button
-                                    onClick={startResetFlow}
-                                    className="w-full py-3 px-4 bg-red-900/20 border border-red-500/30 text-red-500 rounded-lg font-bold hover:bg-red-900/40 transition-colors"
-                                >
-                                    Reset Account
-                                </button>
-                                <p className="text-[10px] text-gray-500">
-                                    Version 0.3 (Mobile)
-                                </p>
-                            </div>
-                        )}
-
-                        {/* Step 2: Confirmation */}
-                        {resetStep === 'confirm' && (
-                            <div className="space-y-4">
-                                <div className="text-red-400 font-bold mb-2">ARE YOU SURE?</div>
-                                <p className="text-xs text-gray-400 mb-4">
-                                    This will completely wipe your save file. This action cannot be undone.
-                                </p>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <button
-                                        onClick={() => setResetStep('idle')}
-                                        className="py-2 px-3 bg-gray-800 text-gray-300 rounded-lg font-bold"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        onClick={confirmReset}
-                                        className="py-2 px-3 bg-red-600 text-white rounded-lg font-bold shadow-red-glow"
-                                    >
-                                        Yes, Wipe It
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Step 3: Math Verification */}
-                        {resetStep === 'math' && mathProblem && (
-                            <div className="space-y-4">
-                                <div className="text-gray-300 font-bold mb-2">Security Check</div>
-                                <p className="text-xs text-gray-400">
-                                    Solve to confirm:
-                                </p>
-                                <div className="text-xl font-mono text-blue-400 font-bold my-2">
-                                    {mathProblem.text} = ?
-                                </div>
-                                <input
-                                    type="text"
-                                    value={userAnswer}
-                                    onChange={(e) => setUserAnswer(e.target.value)}
-                                    placeholder="?"
-                                    className="w-full bg-black/50 border border-gray-600 rounded-lg p-2 text-center text-white font-mono text-lg focus:border-blue-500 outline-none"
-                                    autoFocus
-                                />
-                                <button
-                                    onClick={submitMathAnswer}
-                                    className="w-full py-2 bg-blue-600 text-white rounded-lg font-bold mt-2"
-                                >
-                                    Confirm Reset
-                                </button>
-                            </div>
-                        )}
-
-                    </div>
-                </div>
-            )}
+            <SettingsModal
+                isOpen={settingsOpen}
+                onClose={() => setSettingsOpen(false)}
+                actions={actions}
+                isDevMode={resources.isDevMode}
+            />
         </div>
     );
 };

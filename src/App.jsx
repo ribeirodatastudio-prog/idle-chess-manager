@@ -9,6 +9,8 @@ import { OfflineModal } from './components/OfflineModal';
 import PuzzleRoom from './components/PuzzleRoom';
 import { useIsMobile } from './hooks/useIsMobile';
 import { MobileLayout } from './components/MobileLayout';
+import { SettingsModal } from './components/SettingsModal';
+import { Settings } from 'lucide-react';
 
 const DesktopLayout = ({
     state,
@@ -20,8 +22,25 @@ const DesktopLayout = ({
     activeTab,
     setActiveTab
 }) => {
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
   return (
-    <div className="min-h-screen bg-black text-gray-100 font-sans selection:bg-blue-500 selection:text-white p-2 sm:p-4 overflow-hidden">
+    <div className="min-h-screen bg-black text-gray-100 font-sans selection:bg-blue-500 selection:text-white p-2 sm:p-4 overflow-hidden relative">
+      {/* Settings Button (Desktop) */}
+      <button
+          onClick={() => setSettingsOpen(true)}
+          className="fixed top-4 right-4 z-50 p-2 text-gray-500 hover:text-white bg-gray-900/80 backdrop-blur rounded-lg border border-gray-700 hover:border-gray-500 transition-all shadow-xl"
+      >
+          <Settings size={20} />
+      </button>
+
+      <SettingsModal
+          isOpen={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
+          actions={actions}
+          isDevMode={state.resources.isDevMode}
+      />
+
       <div className="max-w-7xl mx-auto h-[95vh] grid grid-cols-1 lg:grid-cols-12 gap-4">
 
         {/* Left Panel: Upgrades & Skills (3 cols) */}
