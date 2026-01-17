@@ -86,7 +86,7 @@ const TreeColumn = ({ title, parentId, skills, ownedSkills, availableSP, onPurch
                 <div className="text-gray-400 font-bold mb-2 uppercase tracking-wider text-xs">{title}</div>
                 <ParentNode skill={parentSkill} owned={false} onShowDetails={onShowDetails} />
                 <div className="h-8 w-0.5 bg-gray-700 my-2"></div>
-                <div className="flex gap-2">
+                <div className="flex gap-6 md:gap-2">
                      {tier1.map(s => <ChildNode key={s.id} skill={s} locked={true} onShowDetails={onShowDetails} />)}
                 </div>
             </div>
@@ -111,7 +111,7 @@ const TreeColumn = ({ title, parentId, skills, ownedSkills, availableSP, onPurch
             <div className={`h-8 w-0.5 my-2 transition-colors ${parentOwned ? 'bg-purple-500' : 'bg-gray-700'}`}></div>
 
             {/* TIER 1 */}
-            <div className="flex gap-2">
+            <div className="flex gap-6 md:gap-2">
                 {tier1.map(skill => {
                     const level = typeof ownedSkills[skill.id] === 'number'
                                   ? ownedSkills[skill.id]
@@ -151,7 +151,7 @@ const TreeColumn = ({ title, parentId, skills, ownedSkills, availableSP, onPurch
                          )}
                     </div>
 
-                    <div className="flex gap-2">
+                    <div className="flex gap-6 md:gap-2">
                         {tier2.map(skill => {
                             const level = typeof ownedSkills[skill.id] === 'number'
                                           ? ownedSkills[skill.id]
@@ -193,7 +193,7 @@ const TreeColumn = ({ title, parentId, skills, ownedSkills, availableSP, onPurch
                          )}
                     </div>
 
-                    <div className="flex gap-2">
+                    <div className="flex gap-6 md:gap-2">
                         {tier3.map(skill => {
                             const level = typeof ownedSkills[skill.id] === 'number'
                                           ? ownedSkills[skill.id]
@@ -292,7 +292,7 @@ const ChildNode = ({ skill, level, locked, canAfford, isMaxed, onPurchase, bonus
         <button
             {...pressHandlers}
             title={skill.description}
-            className={`w-16 h-20 rounded-lg border flex flex-col items-center justify-center gap-1 transition-all relative group select-none touch-manipulation
+            className={`w-16 h-20 rounded-lg border flex flex-col items-center justify-center gap-1 transition-all relative group select-none touch-manipulation shrink-0
                 ${highlight && !locked ? 'shadow-[0_0_10px_rgba(168,85,247,0.2)]' : ''}
                 ${locked
                     ? 'bg-gray-900 border-gray-800 text-gray-700 cursor-not-allowed opacity-70'
