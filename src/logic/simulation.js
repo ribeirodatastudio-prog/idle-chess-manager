@@ -11,6 +11,13 @@ export const PHASES = {
 const getRandom = (min, max) => Math.random() * (max - min) + min;
 const lerp = (start, end, t) => start + (end - start) * t;
 
+const getSacrificeModeMultiplier = (mode) => {
+    if (mode === 'classical') return 0.6;
+    if (mode === 'blitz') return 1.8;
+    if (mode === 'bullet') return 0.1;
+    return 1.0;
+};
+
 // Box-Muller transform for normal distribution
 const randomNormal = (mean, stdDev) => {
     let u = 0, v = 0;
@@ -587,7 +594,12 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
       // We still need to determine success/fail, defaulting to Player initiation since it's a Player Skill
 
       const actorStats = playerStats;
-      const successChance = Math.min(actorStats.sacrifices * 0.2, 100);
+
+      // Use raw sacrifice stats for success check (undo mode weight)
+      const sacModeMult = getSacrificeModeMultiplier(mode);
+      const effectiveSacrifices = actorStats.sacrifices / sacModeMult;
+
+      const successChance = Math.min(effectiveSacrifices * 0.2, 100);
       const roll = Math.random() * 100;
       const isSuccess = roll < successChance;
 
@@ -620,8 +632,12 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
             const isPlayer = initiator === 'player';
             const actorStats = isPlayer ? playerStats : enemyStats;
 
+            // Use raw sacrifice stats for success check (undo mode weight)
+            const sacModeMult = getSacrificeModeMultiplier(mode);
+            const effectiveSacrifices = actorStats.sacrifices / sacModeMult;
+
             // Success Check: Roll < (Level * 0.2)
-            const successChance = Math.min(actorStats.sacrifices * 0.2, 100);
+            const successChance = Math.min(effectiveSacrifices * 0.2, 100);
             const roll = Math.random() * 100;
             const isSuccess = roll < successChance;
 
