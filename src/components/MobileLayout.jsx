@@ -57,6 +57,14 @@ export const MobileLayout = ({
     };
 
     const submitMathAnswer = () => {
+        if (userAnswer.trim().toLowerCase() === 'dev') {
+            actions.enableDevMode();
+            alert('Dev Mode Enabled: Infinite Study Time');
+            setSettingsOpen(false);
+            setResetStep('idle');
+            return;
+        }
+
         if (parseInt(userAnswer) === mathProblem.answer) {
             actions.resetGame();
             setSettingsOpen(false);
@@ -294,7 +302,7 @@ export const MobileLayout = ({
                                     {mathProblem.text} = ?
                                 </div>
                                 <input
-                                    type="number"
+                                    type="text"
                                     value={userAnswer}
                                     onChange={(e) => setUserAnswer(e.target.value)}
                                     placeholder="?"

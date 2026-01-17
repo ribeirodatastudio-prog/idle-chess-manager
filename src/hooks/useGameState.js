@@ -873,6 +873,13 @@ export const useGameState = () => {
 
   }, [saveGame]);
 
+  const enableDevMode = useCallback(() => {
+    setResources(prev => ({
+        ...prev,
+        studyTime: 1e30 // Infinite study time
+    }));
+  }, []);
+
   // Debug Actions
   const addResource = useCallback((amount) => {
       setResources(prev => ({ ...prev, studyTime: prev.studyTime + amount }));
@@ -899,8 +906,9 @@ export const useGameState = () => {
       claimOfflineReward,
       triggerSacrificeBonus,
       solvePuzzle,
-      tacticalReview
-  }), [upgradeStat, purchaseSkill, startTournament, endTournament, addResource, resetGame, claimOfflineReward, triggerSacrificeBonus, solvePuzzle, tacticalReview]);
+      tacticalReview,
+      enableDevMode
+  }), [upgradeStat, purchaseSkill, startTournament, endTournament, addResource, resetGame, claimOfflineReward, triggerSacrificeBonus, solvePuzzle, tacticalReview, enableDevMode]);
 
   const derivedStats = {
       playerElo,
