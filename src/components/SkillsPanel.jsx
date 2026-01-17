@@ -83,7 +83,7 @@ export const SkillsHeader = ({ derivedStats }) => {
     );
 };
 
-export const SkillsPanel = ({ skills, derivedStats, onPurchase }) => {
+export const SkillsPanel = ({ skills, derivedStats, onPurchase, onTacticalReview }) => {
   const { availableAbilityPoints, studyPoints } = derivedStats;
   const [isTreeOpen, setIsTreeOpen] = useState(false);
 
@@ -132,6 +132,7 @@ export const SkillsPanel = ({ skills, derivedStats, onPurchase }) => {
         skills={skills}
         derivedStats={derivedStats}
         onPurchase={onPurchase}
+        onTacticalReview={onTacticalReview}
       />
 
       <div className="space-y-6">

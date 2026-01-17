@@ -75,10 +75,12 @@ const StatCard = ({ statKey, level, resources, onUpgrade }) => {
   );
 };
 
-export const StatsHeader = ({ resources, playerElo, tournamentIndex = 0, tiersCleared = 0, puzzleMultiplier = 1.0, tenureMultiplier = 1.0, instinctMultiplier = 1.0 }) => {
+export const StatsHeader = ({ resources, playerElo, tournamentIndex = 0, tiersCleared = 0, puzzleMultiplier = 1.0, tenureMultiplier = 1.0, instinctMultiplier = 1.0, totalIncome }) => {
   const rawBase = 1 + tournamentIndex;
   const tierMultiplier = Math.pow(1.01, tiersCleared);
-  const totalIncome = rawBase * tierMultiplier * puzzleMultiplier * tenureMultiplier * instinctMultiplier;
+
+  // Use passed totalIncome or calculate fallback
+  const displayIncome = totalIncome !== undefined ? totalIncome : (rawBase * tierMultiplier * puzzleMultiplier * tenureMultiplier * instinctMultiplier);
 
   return (
     <div className="mb-6 grid grid-cols-2 gap-4">
@@ -88,7 +90,7 @@ export const StatsHeader = ({ resources, playerElo, tournamentIndex = 0, tiersCl
             {formatNumber(resources.studyTime)}
           </span>
           <span className="text-[10px] text-emerald-400 font-mono bg-emerald-900/20 px-1.5 py-0.5 rounded border border-emerald-500/20">
-              +{formatNumber(totalIncome)}/min
+              +{formatNumber(displayIncome)}/min
           </span>
 
           {/* Tooltip */}
@@ -117,7 +119,7 @@ export const StatsHeader = ({ resources, playerElo, tournamentIndex = 0, tiersCl
                  <div className="h-px bg-gray-700 my-1"></div>
                  <div className="flex justify-between font-bold">
                      <span>TOTAL:</span>
-                     <span className="text-emerald-400">{formatNumber(totalIncome)}/min</span>
+                     <span className="text-emerald-400">{formatNumber(displayIncome)}/min</span>
                  </div>
              </div>
           </div>
