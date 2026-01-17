@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { SKILLS, getSkillById, getBranchTierStatus, calculateTenureMultiplier } from '../logic/skills';
-import { Sword, Shield, Skull, Lock, CheckCircle2, Trophy, Clock, RefreshCw } from 'lucide-react';
+import { Sword, Shield, Skull, Lock, CheckCircle2, Trophy, Clock, RefreshCw, X } from 'lucide-react';
+import { useLongPress } from '../hooks/useLongPress';
 
 const getBonusText = (skill, level) => {
     if (level === 0) return null;
@@ -18,17 +19,60 @@ const getBonusText = (skill, level) => {
     return null;
 };
 
-const TreeColumn = ({ title, parentId, skills, ownedSkills, availableSP, onPurchase, locked, branch }) => {
+const SkillDetailOverlay = ({ skill, onClose }) => {
+    if (!skill) return null;
+
+    let Icon = Sword;
+    if (skill.id.includes('def')) Icon = Shield;
+    if (skill.id.includes('sac') || skill.id.includes('risk')) Icon = Skull;
+    if (skill.id.includes('extender')) Icon = Clock;
+    if (skill.id.includes('boost') || skill.id.includes('caro')) Icon = Trophy;
+    if (skill.id.includes('tactics')) Icon = Sword;
+
+    return (
+        <div
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in"
+            onClick={onClose}
+        >
+            <div
+                className="bg-gray-900 border border-gray-600 rounded-xl shadow-2xl p-6 w-full max-w-sm relative"
+                onClick={e => e.stopPropagation()}
+            >
+                <button
+                    onClick={onClose}
+                    className="absolute top-2 right-2 text-gray-400 hover:text-white"
+                >
+                    <X size={20} />
+                </button>
+
+                <div className="flex flex-col items-center text-center">
+                    <div className="p-3 bg-gray-800 rounded-full mb-3 border border-gray-700">
+                        <Icon size={32} className="text-purple-400" />
+                    </div>
+
+                    <h3 className="text-xl font-bold text-white mb-1">{skill.name}</h3>
+                    <div className="text-xs text-purple-300 font-bold uppercase tracking-widest mb-4">{skill.category}</div>
+
+                    <p className="text-gray-300 mb-4 text-sm leading-relaxed">
+                        {skill.description}
+                    </p>
+
+                    <div className="bg-gray-800 rounded-lg p-3 w-full border border-gray-700 flex justify-between items-center">
+                         <span className="text-xs text-gray-500 uppercase font-bold">Cost</span>
+                         <span className="text-white font-mono font-bold">{skill.spCost} SP</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const TreeColumn = ({ title, parentId, skills, ownedSkills, availableSP, onPurchase, locked, branch, onShowDetails }) => {
     const parentSkill = getSkillById(parentId);
     const parentOwned = !!ownedSkills[parentId];
 
     // Parent Bonus (Fixed 10% for these roots)
     const parentBonus = parentOwned ? "+10%" : null;
-
-    // Get Tier Status
-    // For Instinct Focus, we might not use getBranchTierStatus (logic is simpler or nonexistent for Tier 3 there)
-    // But existing code passes 'skills' as a flat list.
-    // We need to separate them by Tier.
 
     const tier1 = skills.filter(s => s.tier === 1 || !s.tier); // Default to Tier 1 if undefined (Instinct)
     const tier2 = skills.filter(s => s.tier === 2);
@@ -38,19 +82,19 @@ const TreeColumn = ({ title, parentId, skills, ownedSkills, availableSP, onPurch
 
     if (locked) {
         return (
-            <div className="flex flex-col items-center opacity-30 pointer-events-none grayscale">
+            <div className="flex flex-col items-center opacity-30 pointer-events-none grayscale min-w-[140px]">
                 <div className="text-gray-400 font-bold mb-2 uppercase tracking-wider text-xs">{title}</div>
-                <ParentNode skill={parentSkill} owned={false} />
+                <ParentNode skill={parentSkill} owned={false} onShowDetails={onShowDetails} />
                 <div className="h-8 w-0.5 bg-gray-700 my-2"></div>
                 <div className="flex gap-2">
-                     {tier1.map(s => <ChildNode key={s.id} skill={s} locked={true} />)}
+                     {tier1.map(s => <ChildNode key={s.id} skill={s} locked={true} onShowDetails={onShowDetails} />)}
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="flex flex-col items-center">
+        <div className="flex flex-col items-center min-w-[140px]">
             <div className="text-gray-400 font-bold mb-2 uppercase tracking-wider text-xs">{title}</div>
 
             {/* TIER 0 (ROOT) */}
@@ -61,6 +105,7 @@ const TreeColumn = ({ title, parentId, skills, ownedSkills, availableSP, onPurch
                 onPurchase={onPurchase}
                 bonusText={parentBonus}
                 icon={true} // Always show icon if available
+                onShowDetails={onShowDetails}
             />
 
             <div className={`h-8 w-0.5 my-2 transition-colors ${parentOwned ? 'bg-purple-500' : 'bg-gray-700'}`}></div>
@@ -85,6 +130,7 @@ const TreeColumn = ({ title, parentId, skills, ownedSkills, availableSP, onPurch
                             isMaxed={isMaxed}
                             onPurchase={onPurchase}
                             bonusText={bonusText}
+                            onShowDetails={onShowDetails}
                         />
                     );
                 })}
@@ -124,6 +170,7 @@ const TreeColumn = ({ title, parentId, skills, ownedSkills, availableSP, onPurch
                                     isMaxed={isMaxed}
                                     onPurchase={onPurchase}
                                     bonusText={bonusText}
+                                    onShowDetails={onShowDetails}
                                 />
                             );
                         })}
@@ -166,6 +213,7 @@ const TreeColumn = ({ title, parentId, skills, ownedSkills, availableSP, onPurch
                                     onPurchase={onPurchase}
                                     bonusText={bonusText}
                                     highlight={true}
+                                    onShowDetails={onShowDetails}
                                 />
                             );
                         })}
@@ -177,7 +225,7 @@ const TreeColumn = ({ title, parentId, skills, ownedSkills, availableSP, onPurch
     );
 };
 
-const ParentNode = ({ skill, owned, canAfford, onPurchase, icon, bonusText }) => {
+const ParentNode = ({ skill, owned, canAfford, onPurchase, icon, bonusText, onShowDetails }) => {
     let IconComponent = null;
     if (icon) {
          if (skill.id.includes('tactics')) IconComponent = Sword;
@@ -185,16 +233,23 @@ const ParentNode = ({ skill, owned, canAfford, onPurchase, icon, bonusText }) =>
          if (skill.id.includes('risk') || skill.id.includes('sac')) IconComponent = Skull;
     }
 
+    const clickAction = () => {
+        if (!owned && canAfford) {
+            onPurchase(skill.id);
+        }
+    };
+
+    const pressHandlers = useLongPress(() => onShowDetails(skill), clickAction, { delay: 500 });
+
     return (
         <button
-            onClick={() => !owned && canAfford && onPurchase(skill.id)}
-            disabled={owned || !canAfford}
-            className={`w-40 p-3 rounded-xl border transition-all flex flex-col items-center gap-2 relative group
+            {...pressHandlers}
+            className={`w-40 p-3 rounded-xl border transition-all flex flex-col items-center gap-2 relative group select-none touch-manipulation
                 ${owned
                     ? 'bg-purple-900/30 border-purple-500 text-purple-200 shadow-[0_0_15px_rgba(168,85,247,0.2)]'
                     : canAfford
                         ? 'bg-gray-800 border-gray-600 hover:border-purple-400 hover:bg-gray-700 text-gray-200'
-                        : 'bg-gray-900 border-gray-800 text-gray-600 cursor-not-allowed'
+                        : 'bg-gray-900 border-gray-800 text-gray-600 opacity-70'
                 }
             `}
         >
@@ -217,7 +272,7 @@ const ParentNode = ({ skill, owned, canAfford, onPurchase, icon, bonusText }) =>
     );
 };
 
-const ChildNode = ({ skill, level, locked, canAfford, isMaxed, onPurchase, bonusText, highlight }) => {
+const ChildNode = ({ skill, level, locked, canAfford, isMaxed, onPurchase, bonusText, highlight, onShowDetails }) => {
     let Icon = Sword;
     if (skill.id.includes('def')) Icon = Shield;
     if (skill.id.includes('sac')) Icon = Skull;
@@ -225,20 +280,27 @@ const ChildNode = ({ skill, level, locked, canAfford, isMaxed, onPurchase, bonus
     if (skill.id.includes('boost') || skill.id.includes('caro')) Icon = Trophy;
     if (skill.tier === 3) Icon = Trophy; // Grandmaster Skills
 
+    const clickAction = () => {
+        if (!locked && !isMaxed && canAfford) {
+            onPurchase(skill.id);
+        }
+    };
+
+    const pressHandlers = useLongPress(() => onShowDetails(skill), clickAction, { delay: 500 });
+
     return (
         <button
-            onClick={() => !locked && !isMaxed && canAfford && onPurchase(skill.id)}
-            disabled={locked || isMaxed || !canAfford}
+            {...pressHandlers}
             title={skill.description}
-            className={`w-16 h-20 rounded-lg border flex flex-col items-center justify-center gap-1 transition-all relative group
+            className={`w-16 h-20 rounded-lg border flex flex-col items-center justify-center gap-1 transition-all relative group select-none touch-manipulation
                 ${highlight && !locked ? 'shadow-[0_0_10px_rgba(168,85,247,0.2)]' : ''}
                 ${locked
-                    ? 'bg-gray-900 border-gray-800 text-gray-700 cursor-not-allowed'
+                    ? 'bg-gray-900 border-gray-800 text-gray-700 cursor-not-allowed opacity-70'
                     : isMaxed
                         ? 'bg-purple-900/20 border-purple-500/50 text-purple-300'
                         : canAfford
                             ? 'bg-gray-800 border-gray-600 hover:border-purple-400 text-gray-200'
-                            : 'bg-gray-900 border-gray-800 text-gray-500 cursor-not-allowed'
+                            : 'bg-gray-900 border-gray-800 text-gray-500 opacity-70'
                 }
             `}
         >
@@ -265,8 +327,10 @@ const ChildNode = ({ skill, level, locked, canAfford, isMaxed, onPurchase, bonus
 };
 
 export const SkillTreeModal = ({ isOpen, onClose, skills, derivedStats, onPurchase, onTacticalReview }) => {
-    if (!isOpen) return null;
     const [activeTab, setActiveTab] = useState('study'); // 'study' | 'instinct'
+    const [selectedSkill, setSelectedSkill] = useState(null);
+
+    if (!isOpen) return null;
 
     const { studyPoints, reviewTokens } = derivedStats;
 
@@ -303,6 +367,8 @@ export const SkillTreeModal = ({ isOpen, onClose, skills, derivedStats, onPurcha
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+            <SkillDetailOverlay skill={selectedSkill} onClose={() => setSelectedSkill(null)} />
+
             <div className="bg-[#1E1E24] w-full max-w-5xl rounded-2xl border border-gray-700 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
 
                 {/* Header */}
@@ -378,10 +444,10 @@ export const SkillTreeModal = ({ isOpen, onClose, skills, derivedStats, onPurcha
                 </div>
 
                 {/* Content */}
-                <div className="p-8 overflow-y-auto flex-1 flex flex-col items-center">
+                <div className="p-4 md:p-8 overflow-y-auto flex-1 flex flex-col items-center w-full">
 
                     {activeTab === 'study' && (
-                        <div className="flex justify-center gap-8 md:gap-16 fade-in">
+                        <div className="w-full flex justify-start md:justify-center overflow-x-auto gap-8 md:gap-16 fade-in pb-4 px-4 snap-x">
                             <TreeColumn
                                 title="Opening"
                                 parentId="study_opening"
@@ -391,6 +457,7 @@ export const SkillTreeModal = ({ isOpen, onClose, skills, derivedStats, onPurcha
                                 onPurchase={onPurchase}
                                 locked={lockOpening}
                                 branch="opening"
+                                onShowDetails={setSelectedSkill}
                             />
 
                             <TreeColumn
@@ -402,6 +469,7 @@ export const SkillTreeModal = ({ isOpen, onClose, skills, derivedStats, onPurcha
                                 onPurchase={onPurchase}
                                 locked={lockMidgame}
                                 branch="midgame"
+                                onShowDetails={setSelectedSkill}
                             />
 
                             <TreeColumn
@@ -413,12 +481,13 @@ export const SkillTreeModal = ({ isOpen, onClose, skills, derivedStats, onPurcha
                                 onPurchase={onPurchase}
                                 locked={lockEndgame}
                                 branch="endgame"
+                                onShowDetails={setSelectedSkill}
                             />
                         </div>
                     )}
 
                     {activeTab === 'instinct' && (
-                        <div className="flex justify-center gap-8 md:gap-16 fade-in">
+                        <div className="w-full flex justify-start md:justify-center overflow-x-auto gap-8 md:gap-16 fade-in pb-4 px-4 snap-x">
                             <TreeColumn
                                 title="Tactics"
                                 parentId="instinct_tactics"
@@ -427,6 +496,7 @@ export const SkillTreeModal = ({ isOpen, onClose, skills, derivedStats, onPurcha
                                 availableSP={studyPoints || 0}
                                 onPurchase={onPurchase}
                                 locked={lockInstinctTactics}
+                                onShowDetails={setSelectedSkill}
                             />
 
                             <TreeColumn
@@ -437,6 +507,7 @@ export const SkillTreeModal = ({ isOpen, onClose, skills, derivedStats, onPurcha
                                 availableSP={studyPoints || 0}
                                 onPurchase={onPurchase}
                                 locked={lockInstinctDefense}
+                                onShowDetails={setSelectedSkill}
                             />
 
                             <TreeColumn
@@ -447,6 +518,7 @@ export const SkillTreeModal = ({ isOpen, onClose, skills, derivedStats, onPurcha
                                 availableSP={studyPoints || 0}
                                 onPurchase={onPurchase}
                                 locked={lockInstinctRisk}
+                                onShowDetails={setSelectedSkill}
                             />
                         </div>
                     )}

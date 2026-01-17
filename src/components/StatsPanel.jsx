@@ -1,5 +1,5 @@
 import React from 'react';
-import { calculateUpgradeCost, calculatePassiveIncomePerMinute } from '../logic/math';
+import { calculateUpgradeCost } from '../logic/math';
 import { formatNumber } from '../logic/format';
 import { Sword, Shield, Skull, BookOpen, Disc, Flag } from 'lucide-react';
 
@@ -135,7 +135,7 @@ export const StatsHeader = ({ resources, playerElo, tournamentIndex = 0, tiersCl
 export const StatsPanel = ({ stats, resources, onUpgrade }) => {
   return (
     <div className="p-4 pt-0">
-      <div className="grid grid-cols-3 gap-3 mb-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-3">
         {/* Row 1: Phases */}
         {['opening', 'midgame', 'endgame'].map(key => (
           <StatCard
@@ -147,7 +147,7 @@ export const StatsPanel = ({ stats, resources, onUpgrade }) => {
           />
         ))}
       </div>
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
          {/* Row 2: Skills */}
          {['tactics', 'sacrifices', 'defense'].map(key => (
           <StatCard
