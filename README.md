@@ -9,11 +9,12 @@ This section documents the exact formulas used in the game's code.
 ### 1. Game Economy
 
 *   **Passive Income (Study Time):**
-    *   **Formula:** `((1 + TotalTournamentWins) * (1.01 ^ TotalTiersCleared)) / 60` per second.
-    *   **Components:**
-        *   `TotalTournamentWins`: Sum of Tournament Indices reached across all game modes.
-        *   `TotalTiersCleared`: Sum of cumulative Tiers cleared across all game modes (including those in completed tournaments).
-    *   **Multipliers:** Puzzle Multiplier (1.01^PuzzlesSolved) is applied on top of this base rate.
+    *   **Formula:** `BaseRate * PuzzleMult * TenureMult * HustleMult`.
+    *   **Base Rate:** `((1 + TotalTournamentWins) * (1.01 ^ TotalTiersCleared)) / 60` per second.
+    *   **Multipliers:**
+        *   **Puzzle:** `1.01 ^ SolvedCount`.
+        *   **Tenure:** `1.05 ^ (BranchLevels * TenureSkillLevel)`. Applies separately for Opening, Midgame, and Endgame branches (Study Focus path only).
+        *   **Hustle:** `1 + (0.01 * Level * SpentBranchSP)`. Applies separately for Tactics, Defense, and Risk branches (Instinct Focus path only).
     *   **Usage:** Study Time is the primary currency for upgrading stats.
 
 *   **Match Rewards:**
@@ -54,9 +55,18 @@ The combat engine uses a **Hybrid Continuous Magnitude + Probabilistic Initiativ
 *   **Opening (Moves 1-10):** K_phase scales from 0.25 to 0.35, MaxClamp scales from 0.30 to 0.45. `BaseSum = Opening + (Tactics * 0.2)`.
 *   **Midgame (Moves 11-30):** K_phase scales from 0.35 to 0.60, MaxClamp scales from 0.45 to 0.75. `BaseSum = Midgame + (Tactics * 0.8)`.
 *   **Endgame (Moves 31-50):** K_phase scales from 0.60 to 0.90, MaxClamp scales from 0.75 to 1.0. `BaseSum = Endgame + (Tactics * 1.5)`.
+*   **Extenders:** Phase boundaries are extended by skills (`op_extender`, etc.), pushing subsequent phases later.
 
-**2. The Algorithm**
-*   **Stats to Efficiency:** `PlayerEff` and `EnemyEff` are derived from the Phase's BaseSum logic (Game Mode weights and Skill Power modifiers apply here).
+**2. Stat Calculation (Snapshot)**
+*   **Formula:** `Stat = Base (Mode Weighted) * (1 + Additive%) * Product(Multipliers)`.
+*   **Classification:**
+    *   **Additive:** Instinct Focus Tier 2 (+1%/lvl), Momentum (+4%/lvl if condition met).
+    *   **Multipliers:** Phase Mastery (1 + 0.1*Lvl), Study Focus Root (1.1), Instinct Root (1.1), Scaling (pow(1.005, turn)).
+*   **Debuffs:** `EnemyStat = Base * (1 - DebuffSum)`.
+    *   **Clamping:** Enemy Stats cannot drop below 10% of their Mode-Weighted Base.
+
+**3. The Algorithm**
+*   **Stats to Efficiency:** `PlayerEff` and `EnemyEff` are derived from the Phase's BaseSum logic using the computed Snapshot stats.
 *   **Step A (Ratio):** `r = Math.log(PlayerEff / EnemyEff)`.
 *   **Step B (Magnitude):** How much the evaluation changes.
     *   `adv = Math.tanh(abs(r) / S)` where `S = 0.15`.

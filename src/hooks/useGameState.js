@@ -442,15 +442,19 @@ export const useGameState = () => {
             const cumulativeTiers = GAME_MODES.reduce((sum, m) => sum + getTiers(currentRanks[m.id]), 0);
 
             let income = calculatePassiveIncomePerSecond(cumulativeIdx, cumulativeTiers);
+            const baseRate = income;
 
             // Apply Puzzle Multiplier
+            let puzzleMult = 1.0;
             if (currentPuzzleStats && currentPuzzleStats.multiplier) {
-                income *= currentPuzzleStats.multiplier;
+                puzzleMult = currentPuzzleStats.multiplier;
+                income *= puzzleMult;
             }
 
             // Apply Tenure Multiplier
             const currentSkills = stateRef.current.skills;
-            income *= calculateTenureMultiplier(currentSkills);
+            const tenureMult = calculateTenureMultiplier(currentSkills);
+            income *= tenureMult;
 
             // Apply Instinct Multiplier
             const tacEcon = getLevel(currentSkills, 'inst_tac_econ');
@@ -471,6 +475,9 @@ export const useGameState = () => {
                 instinctMult *= (1 + (0.01 * riskEcon * sp));
             }
             income *= instinctMult;
+
+            // Debug Log
+            console.log(`Production Breakdown: Base ${baseRate.toFixed(4)} | Puzzle ${puzzleMult.toFixed(2)} | Tenure ${tenureMult.toFixed(2)} | Hustle ${instinctMult.toFixed(2)}`);
 
             return {
             ...prev,

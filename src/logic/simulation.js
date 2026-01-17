@@ -113,7 +113,6 @@ export const generateOpponentStats = (rankData) => {
   let remainingPoints = totalStats - numStats;
   
   // Optimization: Bulk Distribution for large numbers
-  // Reserve a buffer for randomness to ensure 'Identity' logic still works
   const BUFFER = 1000;
 
   if (remainingPoints > BUFFER) {
@@ -128,10 +127,7 @@ export const generateOpponentStats = (rankData) => {
       }
   }
 
-  // Random Distribution (Remaining Buffer)
-
   // Optimization: Use Normal Approximation for large buffers (>50)
-  // This avoids O(N) loop (approx 1000 iterations) and replaces it with O(STATS) logic.
   if (remainingPoints > 50) {
       for (let i = 0; i < numStats - 1; i++) {
           if (remainingPoints <= 0) break;
@@ -183,7 +179,6 @@ export const generateOpponentStats = (rankData) => {
           }
       });
 
-      // If found (should always be true unless all others are 0?), add overflow
       if (maxKey) {
           stats[maxKey] += overflow;
       }
@@ -221,534 +216,474 @@ export const getPhaseConfig = (skills = {}) => {
   return { openingEnd, midgameEnd, maxTurns };
 };
 
+// --- NEW CENTRALIZED MATH HELPER ---
+export const getSnapshot = (turn, rawPlayerStats, rawEnemyStats, skills = {}, phaseConfig = null, context = {}) => {
+    // 1. Context & Setup
+    const { phase1Won, phase2Won, mode = 'rapid' } = context;
+    const phases = phaseConfig || { openingEnd: 10, midgameEnd: 30, maxTurns: 50 };
+
+    // 2. Determine Phase
+    let phase = PHASES.OPENING.name;
+    if (turn > phases.midgameEnd) phase = PHASES.ENDGAME.name;
+    else if (turn > phases.openingEnd) phase = PHASES.MIDGAME.name;
+
+    // 3. Base Stats (Mode Weights applied)
+    // Note: applyModeWeights returns a CLONE, safe to mutate.
+    const playerStats = applyModeWeights(rawPlayerStats, mode);
+    const enemyStats = applyModeWeights(rawEnemyStats, mode);
+    
+    // Store Base Enemy for clamping
+    const enemyBase = { ...enemyStats };
+
+    // Debugging Setup
+    let debugBreakdown = null;
+    let debugStat = null;
+    if (turn === 1) debugStat = 'opening';
+    else if (turn === 15) debugStat = 'tactics';
+    else if (turn === 35) debugStat = 'tactics';
+
+    let debugBase = 0;
+    let debugMod = 0;
+    let debugFinal = 0;
+    let debugEnemyFinal = 0;
+    let debugDebuff = 0;
+
+    // 4. Calculate Player Modifiers
+    // We iterate over keys to apply generic additives/multipliers, then specific overrides.
+    
+    STATS.forEach(stat => {
+        let additive = 0;
+        let multiplier = 1.0;
+
+        // --- INSTINCT FOCUS (TIER 2) - Additive ---
+        if (stat === 'tactics') {
+            if (phase === PHASES.OPENING.name) additive += 0.01 * getSkillLevel(skills, 'inst_tac_op');
+            if (phase === PHASES.MIDGAME.name) additive += 0.01 * getSkillLevel(skills, 'inst_tac_mid');
+            if (phase === PHASES.ENDGAME.name) additive += 0.01 * getSkillLevel(skills, 'inst_tac_end');
+        } else if (stat === 'defense') {
+            if (phase === PHASES.OPENING.name) additive += 0.01 * getSkillLevel(skills, 'inst_def_op');
+            if (phase === PHASES.MIDGAME.name) additive += 0.01 * getSkillLevel(skills, 'inst_def_mid');
+            if (phase === PHASES.ENDGAME.name) additive += 0.01 * getSkillLevel(skills, 'inst_def_end');
+        }
+
+        // --- MOMENTUM (TIER 3) - Additive ---
+        // Space Advantage: +4% All Stats in Midgame if P1 Won
+        if (phase === PHASES.MIDGAME.name && phase1Won) {
+             additive += 0.04 * getSkillLevel(skills, 'op_space');
+        }
+        // Simplification: +4% All Stats in Endgame if P2 Won
+        if (phase === PHASES.ENDGAME.name && phase2Won) {
+             additive += 0.04 * getSkillLevel(skills, 'mid_simplify');
+        }
+
+        // --- PHASE MASTERY (TIER 1) - Multiplicative ---
+        // Formula: 1 + (0.1 * Level)
+        if (phase === PHASES.OPENING.name) {
+            if (stat === 'defense') multiplier *= (1 + 0.1 * getSkillLevel(skills, 'op_def_master'));
+            if (stat === 'tactics') multiplier *= (1 + 0.1 * getSkillLevel(skills, 'op_tac_master'));
+        } else if (phase === PHASES.MIDGAME.name) {
+            if (stat === 'defense') multiplier *= (1 + 0.1 * getSkillLevel(skills, 'mid_def_master'));
+            if (stat === 'tactics') multiplier *= (1 + 0.1 * getSkillLevel(skills, 'mid_tac_master'));
+        } else if (phase === PHASES.ENDGAME.name) {
+            if (stat === 'defense') multiplier *= (1 + 0.1 * getSkillLevel(skills, 'end_def_master'));
+            if (stat === 'tactics') multiplier *= (1 + 0.1 * getSkillLevel(skills, 'end_tac_master'));
+        }
+
+        // --- STUDY FOCUS (ROOT) - Multiplicative ---
+        if (phase === PHASES.OPENING.name && stat === 'opening' && skills.study_opening) multiplier *= 1.1;
+        if (phase === PHASES.MIDGAME.name && stat === 'midgame' && skills.study_midgame) multiplier *= 1.1;
+        if (phase === PHASES.ENDGAME.name && stat === 'endgame' && skills.study_endgame) multiplier *= 1.1;
+
+        // --- INSTINCT ROOT - Multiplicative ---
+        if (stat === 'tactics' && skills.instinct_tactics) multiplier *= 1.1;
+        if (stat === 'defense' && skills.instinct_defense) multiplier *= 1.1;
+
+        // --- SCALING (TIER 3) - Multiplicative ---
+        if (stat === 'tactics') {
+             const lvl = getSkillLevel(skills, 'inst_tac_scale');
+             if (lvl > 0) multiplier *= Math.pow(1.005, turn * lvl); // Wait. Description: "x1.005 per move number per level." usually means pow(1.005, turn)^lvl ? No, pow(1.005, turn). Scale with level?
+             // Usually it's pow(Base + (Gain*Lvl), Turn) or pow(Base, Turn) * Lvl?
+             // Previous code: Math.pow(1 + (0.005 * tacScaleLvl), moveNumber)
+             // Reverting to previous logic: pow(1 + (0.005 * Lvl), turn)
+             if (lvl > 0) multiplier *= Math.pow(1 + (0.005 * lvl), turn);
+        }
+        if (stat === 'defense') {
+             const lvl = getSkillLevel(skills, 'inst_def_scale');
+             if (lvl > 0) multiplier *= Math.pow(1 + (0.005 * lvl), turn);
+        }
+
+        // --- GLOBAL SKILLS ---
+        // Deep Blue: Scales exponentially
+        if (skills.deep_blue) {
+             multiplier *= Math.pow(1.02, turn);
+        }
+        // Iron Curtain: -50% Attack
+        if (skills.iron_curtain) {
+             multiplier *= 0.5;
+        }
+
+        // Main Line (Opening >= 100 -> +10%)
+        // Original logic: "if Opening Level >= 100". Check raw stats?
+        // Let's assume raw opening stat? or Base opening?
+        // Using rawPlayerStats.opening.
+        if (skills.main_line && rawPlayerStats.opening >= 100) {
+             multiplier *= 1.1;
+        }
+
+        // Chess 960 Tactic Dynamics
+        if (mode === 'chess960' && stat === 'tactics') {
+            if (turn <= 10) multiplier *= 1.75;
+            else if (turn <= 30) multiplier *= 1.25;
+        }
+
+        // APPLY TO PLAYER STAT
+        const preVal = playerStats[stat];
+        playerStats[stat] = playerStats[stat] * (1 + additive) * multiplier;
+
+        // Capture Debug Info
+        if (stat === debugStat) {
+            debugBase = preVal;
+            // Effective Multiplier = (1+Add) * Mult
+            debugMod = (1 + additive) * multiplier;
+            debugFinal = playerStats[stat];
+        }
+    });
+
+    // 5. Calculate Enemy Debuffs & Clamping
+    STATS.forEach(stat => {
+        let debuffSum = 0; // Additive Debuffs
+
+        // --- TIER 3 DEBUFFS ---
+        if (phase === PHASES.OPENING.name && stat === 'opening') {
+            debuffSum += 0.03 * getSkillLevel(skills, 'op_novelty');
+        }
+        if (phase === PHASES.MIDGAME.name && stat === 'tactics') {
+            debuffSum += 0.03 * getSkillLevel(skills, 'mid_cloud');
+        }
+        if (phase === PHASES.ENDGAME.name && stat === 'defense') {
+            debuffSum += 0.03 * getSkillLevel(skills, 'end_tablebase');
+        }
+
+        // --- INSTINCT DEBUFFS (TIER 2) ---
+        if (stat === 'tactics') debuffSum += 0.01 * getSkillLevel(skills, 'inst_tac_deb');
+        if (stat === 'defense') debuffSum += 0.01 * getSkillLevel(skills, 'inst_def_deb');
+        if (stat === 'endgame') debuffSum += 0.01 * getSkillLevel(skills, 'inst_sac_deb'); // "Endgame Confusion" targets Endgame stat
+
+        // --- SKILL: TIME TROUBLE ---
+        if (skills.time_trouble && turn > 35) {
+             // "Cumulative enemy debuff... 4% per turn after 35"
+             // Original: 1 - 0.04 * (turn - 35).
+             // Add to debuffSum?
+             debuffSum += 0.04 * (turn - 35);
+        }
+
+        // --- SKILL: ZUGZWANG (Tier 3) ---
+        if (stat === 'defense' || stat === 'tactics' || stat === 'opening' || stat === 'midgame' || stat === 'endgame' || stat === 'sacrifices') {
+             // Applies to ALL stats? "Enemy stats decay"
+             const zugLvl = getSkillLevel(skills, 'end_zugzwang');
+             if (zugLvl > 0 && turn > 30) {
+                 debuffSum += 0.01 * zugLvl * (turn - 30);
+             }
+        }
+
+        // Apply Debuff
+        // Value = Base * (1 - DebuffSum)
+        let finalVal = enemyStats[stat] * (1 - debuffSum);
+
+        // Clamp: Min 10% of Base (Mode Weighted)
+        const minVal = enemyBase[stat] * 0.10;
+        if (finalVal < minVal) finalVal = minVal;
+
+        enemyStats[stat] = finalVal;
+
+        if (stat === debugStat) {
+            debugEnemyFinal = enemyStats[stat];
+            debugDebuff = debuffSum;
+        }
+    });
+
+    if (debugStat) {
+        // "T15 (Mid): Base Tac 100 -> Mod 1.5x -> Debuff -10% -> Final 135. Enemy 120."
+        const label = debugStat === 'opening' ? 'Op' : (debugStat === 'tactics' ? 'Tac' : 'Stat');
+        const phaseLabel = phase.substring(0, 3);
+        const modStr = debugMod.toFixed(2) + 'x';
+        const debuffStr = (debugDebuff * 100).toFixed(0) + '%';
+
+        debugBreakdown = `T${turn} (${phaseLabel}): Base ${label} ${Math.round(debugBase)} -> Mod ${modStr} -> Debuff -${debuffStr} -> Final ${Math.round(debugFinal)}. Enemy ${Math.round(debugEnemyFinal)}.`;
+    }
+
+    // 6. Calculate Sacrifice Chance
+    // Base 2% (Rapid). Modifiers apply.
+    let sacrificeChance = 0.02;
+    let maxSacrifices = 1;
+
+    if (mode === 'classical') { sacrificeChance = 0.01; maxSacrifices = 1; }
+    else if (mode === 'blitz') { sacrificeChance = 0.05; maxSacrifices = 2; }
+    else if (mode === 'bullet') { sacrificeChance = 0.10; maxSacrifices = 3; }
+    else if (mode === 'chess960') { sacrificeChance = 0.01; maxSacrifices = 1; }
+
+    let sacAdd = 0;
+    let sacMult = 1.0;
+
+    // Additive
+    if (phase === PHASES.OPENING.name) {
+        sacAdd += 0.01 * getSkillLevel(skills, 'op_sac_master');
+        sacAdd += 0.01 * getSkillLevel(skills, 'inst_sac_op');
+    } else if (phase === PHASES.MIDGAME.name) {
+        sacAdd += 0.01 * getSkillLevel(skills, 'mid_sac_master');
+        sacAdd += 0.01 * getSkillLevel(skills, 'inst_sac_mid');
+    } else if (phase === PHASES.ENDGAME.name) {
+        sacAdd += 0.01 * getSkillLevel(skills, 'end_sac_master');
+        sacAdd += 0.01 * getSkillLevel(skills, 'inst_sac_end');
+    }
+
+    // Multiplier
+    if (skills.instinct_risk) sacMult *= 1.1;
+    if (skills.chaos_theory) sacMult *= 2.0;
+
+    // Scaling
+    const sacScaleLvl = getSkillLevel(skills, 'inst_sac_scale');
+    if (sacScaleLvl > 0) sacMult *= Math.pow(1 + (0.005 * sacScaleLvl), turn);
+
+    // Final Calc
+    sacrificeChance = (sacrificeChance + sacAdd) * sacMult;
+
+    // Cap at 90%
+    if (sacrificeChance > 0.90) sacrificeChance = 0.90;
+
+    return {
+        playerStats,
+        enemyStats,
+        phase,
+        sacrificeChance,
+        maxSacrifices,
+        debugBreakdown
+    };
+};
+
 export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, currentEval, skills = {}, phase1Won = false, move11Eval = 0, mode = 'rapid', sacrificesCount = 0, phaseConfig = null, phase2Won = false) => {
-  // --- PREPARATION & WEIGHTS ---
-  const playerStats = applyModeWeights(rawPlayerStats, mode);
-  const enemyStats = applyModeWeights(rawEnemyStats, mode);
 
-  // --- SKILL MODIFIERS (STATS) ---
-  if (skills.study_opening) playerStats.opening *= 1.1;
-  if (skills.study_midgame) playerStats.midgame *= 1.1;
-  if (skills.study_endgame) playerStats.endgame *= 1.1;
+    // 1. Get Snapshot
+    const snapshot = getSnapshot(moveNumber, rawPlayerStats, rawEnemyStats, skills, phaseConfig, { phase1Won, phase2Won, mode });
+    const { playerStats, enemyStats, phase, sacrificeChance, maxSacrifices } = snapshot;
+
+    // 2. Base Sums (Using effective stats)
+    let playerBaseSum = 0;
+    let enemyBaseSum = 0;
+    let K_phase = 0.25;
+    let MaxClamp = 0.30;
+
+    const phases = phaseConfig || { openingEnd: 10, midgameEnd: 30, maxTurns: 50 };
+
+    if (phase === PHASES.OPENING.name) {
+        playerBaseSum = playerStats.opening + (playerStats.tactics * 0.2);
+        enemyBaseSum = enemyStats.opening + (enemyStats.tactics * 0.2);
+
+        const pStart = 1;
+        const pEnd = phases.openingEnd;
+        const progress = Math.min(1.0, Math.max(0.0, (moveNumber - pStart) / (pEnd - pStart)));
+        K_phase = lerp(0.25, 0.35, progress);
+        MaxClamp = lerp(0.30, 0.45, progress);
+
+    } else if (phase === PHASES.MIDGAME.name) {
+        playerBaseSum = playerStats.midgame + (playerStats.tactics * 0.8);
+        enemyBaseSum = enemyStats.midgame + (enemyStats.tactics * 0.8);
+
+        const pStart = phases.openingEnd + 1;
+        const pEnd = phases.midgameEnd;
+        const progress = Math.min(1.0, Math.max(0.0, (moveNumber - pStart) / (pEnd - pStart)));
+        K_phase = lerp(0.35, 0.60, progress);
+        MaxClamp = lerp(0.45, 0.75, progress);
 
-  if (skills.instinct_tactics) playerStats.tactics *= 1.1;
-  if (skills.instinct_defense) playerStats.defense *= 1.1;
-
-  // NEW: Instinct Debuffs (Disruption)
-  const tacDebLvl = getSkillLevel(skills, 'inst_tac_deb');
-  const defDebLvl = getSkillLevel(skills, 'inst_def_deb');
-  const sacDebLvl = getSkillLevel(skills, 'inst_sac_deb');
-
-  if (tacDebLvl > 0) enemyStats.tactics *= (1 - (0.01 * tacDebLvl));
-  if (defDebLvl > 0) enemyStats.defense *= (1 - (0.01 * defDebLvl));
-  if (sacDebLvl > 0) enemyStats.endgame *= (1 - (0.01 * sacDebLvl));
-
-  // NEW: Instinct Momentum (Scaling)
-  const tacScaleLvl = getSkillLevel(skills, 'inst_tac_scale');
-  const defScaleLvl = getSkillLevel(skills, 'inst_def_scale');
-  const sacScaleLvl = getSkillLevel(skills, 'inst_sac_scale'); // Affects sacrificeChance later
-
-  if (tacScaleLvl > 0) playerStats.tactics *= Math.pow(1 + (0.005 * tacScaleLvl), moveNumber);
-  if (defScaleLvl > 0) playerStats.defense *= Math.pow(1 + (0.005 * defScaleLvl), moveNumber);
-
-  // Chess 960: Dynamic Tactics
-  if (mode === 'chess960') {
-      let tacticMult = 1.0;
-      if (moveNumber <= 10) tacticMult = 1.75; // Chaos phase
-      else if (moveNumber <= 30) tacticMult = 1.25; // Stabilizing
-      else tacticMult = 1.0; // Pure chess
-
-      playerStats.tactics *= tacticMult;
-      enemyStats.tactics *= tacticMult;
-  }
-
-  // --- PHASE DETERMINATION & BASE SUMS ---
-
-  // Use provided phaseConfig or default to constants
-  const phases = phaseConfig || {
-      openingEnd: PHASES.OPENING.end,
-      midgameEnd: PHASES.MIDGAME.end,
-      maxTurns: PHASES.ENDGAME.end
-  };
-
-  let phase = '';
-  let playerBaseSum = 0;
-  let enemyBaseSum = 0;
-  let logMessage = '';
-
-  // Define K_phase and MaxClamp dynamically
-  let K_phase = 0.25;
-  let MaxClamp = 0.30;
-  
-  if (moveNumber <= phases.openingEnd) {
-    phase = PHASES.OPENING.name;
-    
-    // Phase Mastery Modifiers
-    const defLvl = getSkillLevel(skills, 'op_def_master');
-    const tacLvl = getSkillLevel(skills, 'op_tac_master');
-
-    if (defLvl > 0) playerStats.defense *= (1 + (0.1 * defLvl));
-    if (tacLvl > 0) playerStats.tactics *= (1 + (0.1 * tacLvl));
-
-    // Instinct Focus Modifiers
-    const instDefLvl = getSkillLevel(skills, 'inst_def_op');
-    const instTacLvl = getSkillLevel(skills, 'inst_tac_op');
-
-    if (instDefLvl > 0) playerStats.defense *= (1 + (0.01 * instDefLvl));
-    if (instTacLvl > 0) playerStats.tactics *= (1 + (0.01 * instTacLvl));
-
-    // Tier 3 Debuff: Prepared Novelty (Enemy Opening -3%/lvl)
-    const noveltyLvl = getSkillLevel(skills, 'op_novelty');
-    if (noveltyLvl > 0) {
-        enemyStats.opening *= (1 - (0.03 * noveltyLvl));
-    }
-
-    // Stats
-    playerBaseSum = playerStats.opening + (playerStats.tactics * 0.2);
-    enemyBaseSum = enemyStats.opening + (enemyStats.tactics * 0.2);
-
-    // Dynamic Interpolation
-    const pStart = 1;
-    const pEnd = phases.openingEnd;
-    const progress = Math.min(1.0, Math.max(0.0, (moveNumber - pStart) / (pEnd - pStart)));
-
-    K_phase = lerp(0.25, 0.35, progress);
-    MaxClamp = lerp(0.30, 0.45, progress);
-    
-  } else if (moveNumber <= phases.midgameEnd) {
-    phase = PHASES.MIDGAME.name;
-    
-    // Phase Mastery Modifiers
-    const defLvl = getSkillLevel(skills, 'mid_def_master');
-    const tacLvl = getSkillLevel(skills, 'mid_tac_master');
-
-    if (defLvl > 0) playerStats.defense *= (1 + (0.1 * defLvl));
-    if (tacLvl > 0) playerStats.tactics *= (1 + (0.1 * tacLvl));
-
-    // Instinct Focus Modifiers
-    const instDefLvl = getSkillLevel(skills, 'inst_def_mid');
-    const instTacLvl = getSkillLevel(skills, 'inst_tac_mid');
-
-    if (instDefLvl > 0) playerStats.defense *= (1 + (0.01 * instDefLvl));
-    if (instTacLvl > 0) playerStats.tactics *= (1 + (0.01 * instTacLvl));
-
-    // Tier 3 Debuff: Tactical Cloud (Enemy Tactics -3%/lvl)
-    const cloudLvl = getSkillLevel(skills, 'mid_cloud');
-    if (cloudLvl > 0) {
-        enemyStats.tactics *= (1 - (0.03 * cloudLvl));
-    }
-
-    // Tier 3 Momentum: Space Advantage (If Phase 1 Won, +4% All Stats/lvl)
-    if (phase1Won) {
-        const spaceLvl = getSkillLevel(skills, 'op_space');
-        if (spaceLvl > 0) {
-            const mult = 1 + (0.04 * spaceLvl);
-            playerStats.opening *= mult;
-            playerStats.midgame *= mult;
-            playerStats.endgame *= mult;
-            playerStats.tactics *= mult;
-            playerStats.sacrifices *= mult;
-            playerStats.defense *= mult;
-        }
-    }
-
-    // Stats
-    playerBaseSum = playerStats.midgame + (playerStats.tactics * 0.8);
-    enemyBaseSum = enemyStats.midgame + (enemyStats.tactics * 0.8);
-
-    // Dynamic Interpolation
-    const pStart = phases.openingEnd + 1;
-    const pEnd = phases.midgameEnd;
-    const progress = Math.min(1.0, Math.max(0.0, (moveNumber - pStart) / (pEnd - pStart)));
-
-    K_phase = lerp(0.35, 0.60, progress);
-    MaxClamp = lerp(0.45, 0.75, progress);
-
-  } else {
-    phase = PHASES.ENDGAME.name;
-
-    // Phase Mastery Modifiers
-    const defLvl = getSkillLevel(skills, 'end_def_master');
-    const tacLvl = getSkillLevel(skills, 'end_tac_master');
-
-    if (defLvl > 0) playerStats.defense *= (1 + (0.1 * defLvl));
-    if (tacLvl > 0) playerStats.tactics *= (1 + (0.1 * tacLvl));
-
-    // Instinct Focus Modifiers
-    const instDefLvl = getSkillLevel(skills, 'inst_def_end');
-    const instTacLvl = getSkillLevel(skills, 'inst_tac_end');
-
-    if (instDefLvl > 0) playerStats.defense *= (1 + (0.01 * instDefLvl));
-    if (instTacLvl > 0) playerStats.tactics *= (1 + (0.01 * instTacLvl));
-    
-    // Tier 3 Debuff: Tablebase Memory (Enemy Defense -3%/lvl)
-    const tablebaseLvl = getSkillLevel(skills, 'end_tablebase');
-    if (tablebaseLvl > 0) {
-        enemyStats.defense *= (1 - (0.03 * tablebaseLvl));
-    }
-
-    // Tier 3 Momentum: Simplification (If Phase 2 Won, +4% All Stats/lvl)
-    if (phase2Won) {
-        const simplifyLvl = getSkillLevel(skills, 'mid_simplify');
-        if (simplifyLvl > 0) {
-            const mult = 1 + (0.04 * simplifyLvl);
-            playerStats.opening *= mult;
-            playerStats.midgame *= mult;
-            playerStats.endgame *= mult;
-            playerStats.tactics *= mult;
-            playerStats.sacrifices *= mult;
-            playerStats.defense *= mult;
-        }
-    }
-
-    // Tier 3 Zugzwang (Enemy stats decay 1% per turn after move 30)
-    // Applies to BaseSum calculation? Or Stats?
-    // "Enemy stats decay". Let's apply to ALL enemy stats before BaseSum.
-    const zugzwangLvl = getSkillLevel(skills, 'end_zugzwang');
-    if (zugzwangLvl > 0 && moveNumber > 30) {
-        const decay = 0.01 * zugzwangLvl * (moveNumber - 30);
-        const multiplier = Math.max(0, 1.0 - decay);
-
-        enemyStats.opening *= multiplier;
-        enemyStats.midgame *= multiplier;
-        enemyStats.endgame *= multiplier;
-        enemyStats.tactics *= multiplier;
-        enemyStats.sacrifices *= multiplier;
-        enemyStats.defense *= multiplier;
-    }
-
-    // Stats
-    playerBaseSum = playerStats.endgame + (playerStats.tactics * 1.5);
-    enemyBaseSum = enemyStats.endgame + (enemyStats.tactics * 1.5);
-
-    // Dynamic Interpolation
-    const pStart = phases.midgameEnd + 1;
-    const pEnd = phases.maxTurns;
-    const progress = Math.min(1.0, Math.max(0.0, (moveNumber - pStart) / (pEnd - pStart)));
-
-    K_phase = lerp(0.60, 0.90, progress);
-    MaxClamp = lerp(0.75, 1.0, progress);
-  }
-
-  // --- SKILL MODIFIERS (BASE STATS) ---
-
-  // Skill: Deep Blue Calculation
-  // Player Power scales exponentially (1.02 ^ MoveNumber)
-  if (skills.deep_blue) {
-      playerBaseSum *= Math.pow(1.02, moveNumber);
-  }
-
-  // Skill: Iron Curtain (Attack Reduction)
-  // -50% Attack
-  if (skills.iron_curtain) {
-      playerBaseSum *= 0.5;
-  }
-
-  // Skill: Time Trouble
-  // Cumulative enemy debuff in late game (Moves 35+).
-  if (skills.time_trouble && moveNumber > 35) {
-      const dropOff = 1 - (0.04 * (moveNumber - 35));
-      enemyBaseSum *= Math.max(0, dropOff);
-  }
-
-  // --- END NEW SKILL LOGIC (Part 1: Base Stats) ---
-  
-  // --- HYBRID PROBABILISTIC COMBAT ENGINE ---
-
-  // 1. Constants & Parameters
-  const S = 0.15;
-  const a = 6.0;
-  const gamma = 1.6;
-  const minProg = 0.30;
-
-  // 3. The Algorithm
-
-  // Step A: Base Ratio (Logarithmic)
-  // Use BaseSums as 'Eff' (Efficiency/Power)
-  // Ensure stats are at least 1.0 to avoid Math.log(0) -> -Infinity
-  let PlayerEff = Math.max(1.0, playerBaseSum);
-  let EnemyEff = Math.max(1.0, enemyBaseSum);
-
-  // Skill: Iron Curtain (Defense Boost part)
-  // The attack reduction (-50%) is handled in Base Stats.
-  // The defense boost (+40%) is mapped here as reducing Enemy Efficiency.
-  if (skills.iron_curtain) {
-      EnemyEff /= 1.4;
-  }
-
-  const r = Math.log(PlayerEff / EnemyEff);
-
-  // Step B: Continuous Magnitude (How big is the move?)
-  const adv = Math.tanh(Math.abs(r) / S);
-  const rawMag = minProg + (1.0 - minProg) * Math.pow(adv, gamma);
-  const deltaMag = K_phase * rawMag;
-
-  // Step C: Probabilistic Direction (Who wins the move?)
-  // p = Probability that Player wins this move
-  const p = 1 / (1 + Math.exp(-a * r));
-  
-  // Roll the dice
-  const isPlayerWinner = Math.random() < p;
-  const sign = isPlayerWinner ? 1 : -1;
-
-  // Step D: Final Calculation & Clamping
-
-  // 1. Who won? What was their chance?
-  const winnerProb = isPlayerWinner ? p : (1.0 - p);
-
-  // 2. Calculate Efficiency (Direct Mapping)
-  let efficiency = winnerProb;
-
-  // Apply Floor (Min 20%)
-  if (efficiency < 0.20) {
-      efficiency = 0.20;
-  }
-
-  // Apply Cap (Killer Instinct at 90%+)
-  if (efficiency >= 0.90) {
-      efficiency = 1.0;
-  }
-
-  // 3. Final Calculation
-  // Random Variance (0.9 to 1.1) for organic feel
-  const variance = 0.9 + Math.random() * 0.2;
-  const finalDelta = sign * deltaMag * efficiency * variance;
-  
-  // Clamp the base move delta (before sacrifices/skills)
-  let delta = Math.max(-MaxClamp, Math.min(MaxClamp, finalDelta));
-  
-  let sacrificeSwing = 0;
-  let triggeredSacrifice = false;
-  let triggerBrilliantBounty = false;
-
-  // Determine Sacrifice Limits and Chance based on Mode
-  let maxSacrifices = 1;
-  let sacrificeChance = 0.02; // Default (Rapid)
-
-  if (mode === 'classical') {
-      sacrificeChance = 0.01;
-      maxSacrifices = 1;
-  } else if (mode === 'blitz') {
-      sacrificeChance = 0.05;
-      maxSacrifices = 2;
-  } else if (mode === 'bullet') {
-      sacrificeChance = 0.10;
-      maxSacrifices = 3;
-  } else if (mode === 'chess960') {
-      sacrificeChance = 0.01;
-      maxSacrifices = 1;
-  }
-
-  // --- SKILL MODIFIERS (SACRIFICE CHANCE) ---
-  if (skills.instinct_risk) sacrificeChance *= 1.1;
-  if (skills.chaos_theory) sacrificeChance *= 2.0;
-
-  // NEW: Instinct Momentum (Sacrifice Scaling)
-  if (sacScaleLvl > 0) sacrificeChance *= Math.pow(1 + (0.005 * sacScaleLvl), moveNumber);
-
-  // Phase Mastery Sacrifice Modifiers
-  if (moveNumber <= phases.openingEnd) {
-      const sacLvl = getSkillLevel(skills, 'op_sac_master');
-      if (sacLvl > 0) sacrificeChance += (0.01 * sacLvl);
-
-      const instSacLvl = getSkillLevel(skills, 'inst_sac_op');
-      if (instSacLvl > 0) sacrificeChance += (0.01 * instSacLvl);
-  } else if (moveNumber <= PHASES.MIDGAME.end) {
-      const sacLvl = getSkillLevel(skills, 'mid_sac_master');
-      if (sacLvl > 0) sacrificeChance += (0.01 * sacLvl);
-
-      const instSacLvl = getSkillLevel(skills, 'inst_sac_mid');
-      if (instSacLvl > 0) sacrificeChance += (0.01 * instSacLvl);
-  } else {
-      const sacLvl = getSkillLevel(skills, 'end_sac_master');
-      if (sacLvl > 0) sacrificeChance += (0.01 * sacLvl);
-
-      const instSacLvl = getSkillLevel(skills, 'inst_sac_end');
-      if (instSacLvl > 0) sacrificeChance += (0.01 * instSacLvl);
-  }
-
-  // --- SCRIPTED SACRIFICES (GAMBITS) ---
-  let forceSacrifice = false;
-
-  const opGambit = getSkillLevel(skills, 'op_gambit');
-  const midGambit = getSkillLevel(skills, 'mid_gambit');
-  const endGambit = getSkillLevel(skills, 'end_gambit');
-
-  if (opGambit > 0 && moveNumber === 5) forceSacrifice = true;
-  if (midGambit > 0 && moveNumber === 25) forceSacrifice = true;
-  if (endGambit > 0 && moveNumber === 35) forceSacrifice = true;
-
-  // Logic:
-  // If forceSacrifice, we set triggeredSacrifice = true and SKIP the chance check.
-  // We also bypass the maxSacrifices limit check for this specific instance.
-
-  if (forceSacrifice) {
-      triggeredSacrifice = true;
-      // We still need to determine success/fail, defaulting to Player initiation since it's a Player Skill
-
-      const actorStats = playerStats;
-      const successChance = Math.min(actorStats.sacrifices * 0.2, 100);
-      const roll = Math.random() * 100;
-      const isSuccess = roll < successChance;
-
-      if (isSuccess) {
-          sacrificeSwing = 5.0;
-          logMessage = '!! GAMBIT !! A prepared sacrifice strikes!';
-          if (skills.brilliant_bounty) triggerBrilliantBounty = true;
-      } else {
-          sacrificeSwing = -2.0;
-          logMessage = 'Gambit Refuted... The sacrifice was unsound.';
-      }
-
-      delta += sacrificeSwing;
-
-  } else {
-      // Standard Sacrifice Logic
-      if (moveNumber > 5 && sacrificesCount < maxSacrifices) {
-        let initiator = null;
-        const playerRoll = Math.random();
-        const enemyRoll = Math.random();
-
-        if (playerRoll < sacrificeChance) {
-            initiator = 'player';
-        } else if (enemyRoll < sacrificeChance) {
-            initiator = 'enemy';
-        }
-
-        if (initiator) {
-            triggeredSacrifice = true;
-            const isPlayer = initiator === 'player';
-            const actorStats = isPlayer ? playerStats : enemyStats;
-
-            // Success Check: Roll < (Level * 0.2)
-            const successChance = Math.min(actorStats.sacrifices * 0.2, 100);
-            const roll = Math.random() * 100;
-            const isSuccess = roll < successChance;
-
-            if (isPlayer) {
-                if (isSuccess) {
-                    sacrificeSwing = 5.0;
-                    logMessage = '!! BRILLIANT SACRIFICE !! The engine didn\'t see it coming!';
-                    if (skills.brilliant_bounty) triggerBrilliantBounty = true;
-                } else {
-                    sacrificeSwing = -2.0;
-                    logMessage = 'Unsound Sacrifice... The opponent refutes it.';
-                }
-            } else {
-                if (isSuccess) {
-                    sacrificeSwing = -5.0;
-                    logMessage = '!! OPPONENT SACRIFICE !! The AI unleashes chaos!';
-                } else {
-                    sacrificeSwing = 2.0;
-                    logMessage = 'Opponent blunders a sacrifice!';
-                }
-            }
-            delta += sacrificeSwing;
-        }
-      }
-  }
-
-  // --- EVAL INJECTION (BOOSTS) ---
-  const opCaro = getSkillLevel(skills, 'op_caro');
-  const midBoost = getSkillLevel(skills, 'mid_boost');
-  const endBoost = getSkillLevel(skills, 'end_boost');
-
-  if (opCaro > 0 && moveNumber === 1) {
-      delta += (0.1 * opCaro);
-  }
-
-  // Midgame Boost: Starts at openingEnd + 1
-  if (midBoost > 0 && moveNumber === (phases.openingEnd + 1)) {
-      delta += (0.1 * midBoost);
-  }
-
-  // Endgame Boost: Starts at midgameEnd + 1
-  if (endBoost > 0 && moveNumber === (phases.midgameEnd + 1)) {
-      delta += (0.1 * endBoost);
-  }
-  
-  // --- SKILL MODIFIERS (RESULT) ---
-
-  // Skill: Lasker's Defense
-  // Double evaluation recovery if losing after Move 20.
-  if (skills.lasker_defense && moveNumber > 20) {
-      if (currentEval < -1.0 && delta > 0) {
-          delta *= 2.0;
-      }
-  }
-
-  let newEval = currentEval + delta;
-
-  // Endgame Snowball Effect
-  if (phase === PHASES.ENDGAME.name) {
-      if (newEval > 1.0) {
-          newEval *= 1.1;
-      } else if (newEval < -1.0) {
-          newEval *= 1.1;
-      }
-  }
-  
-  // --- RESOLUTION ---
-
-  let result = null;
-  
-  // Skill: Decisive Blow
-  const winThreshold = skills.decisive_blow ? 5.0 : 8.0;
-  
-  // 1. Check Win/Loss
-  if (newEval >= winThreshold) result = 'win';
-  else if (newEval <= -winThreshold) result = 'loss';
-  
-  // 2. Check Draw A (Remis Zone 30-49)
-  // Adjusted for maxTurns? Remis zone is typically "Late Game but before limit"
-  // Let's keep 30-49 range roughly, but maybe scale if maxTurns > 50?
-  // User didn't specify Remis Zone change, but logically it should be near end.
-  // For safety, let's keep 30 to (maxTurns - 1).
-
-  if (!result && moveNumber >= 30 && moveNumber < phases.maxTurns) {
-    if (newEval > -1.0 && newEval < 1.0) {
-      if (Math.random() < 0.15) {
-        result = 'draw';
-        logMessage = 'Draw agreed in deadlocked position.';
-      }
-    }
-  }
-  
-  // 3. Check Draw B (Move Limit)
-  if (!result && moveNumber >= phases.maxTurns) {
-    if (skills.iron_curtain && newEval > -8.0) {
-        result = 'win';
-        logMessage = 'Iron Curtain! Survival is Victory.';
     } else {
-        const playerAggression = playerStats.tactics + playerStats.sacrifices;
-        const enemyAggression = enemyStats.tactics + enemyStats.sacrifices;
+        playerBaseSum = playerStats.endgame + (playerStats.tactics * 1.5);
+        enemyBaseSum = enemyStats.endgame + (enemyStats.tactics * 1.5);
 
-        if (playerAggression > enemyAggression) {
-            result = 'win';
-            logMessage = 'Draw avoided! Player wins by Tactical Superiority.';
-        } else if (enemyAggression > playerAggression) {
-            result = 'loss';
-            logMessage = 'Draw avoided! Opponent wins by Tactical Superiority.';
+        const pStart = phases.midgameEnd + 1;
+        const pEnd = phases.maxTurns;
+        const progress = Math.min(1.0, Math.max(0.0, (moveNumber - pStart) / (pEnd - pStart)));
+        K_phase = lerp(0.60, 0.90, progress);
+        MaxClamp = lerp(0.75, 1.0, progress);
+    }
+
+    // 3. Combat Logic
+    const S = 0.15;
+    const a = 6.0;
+    const gamma = 1.6;
+    const minProg = 0.30;
+
+    // Skill: Iron Curtain (Defense Boost)
+    // -50% Attack handled in snapshot. +40% Defense (EnemyEff Reduction) handled here.
+    let PlayerEff = Math.max(1.0, playerBaseSum);
+    let EnemyEff = Math.max(1.0, enemyBaseSum);
+
+    if (skills.iron_curtain) {
+         // "Defense +40%". Original code: EnemyEff /= 1.4.
+         EnemyEff /= 1.4;
+    }
+
+    const r = Math.log(PlayerEff / EnemyEff);
+    const adv = Math.tanh(Math.abs(r) / S);
+    const rawMag = minProg + (1.0 - minProg) * Math.pow(adv, gamma);
+    const deltaMag = K_phase * rawMag;
+
+    const p = 1 / (1 + Math.exp(-a * r));
+    const isPlayerWinner = Math.random() < p;
+    const sign = isPlayerWinner ? 1 : -1;
+
+    const winnerProb = isPlayerWinner ? p : (1.0 - p);
+    let efficiency = winnerProb;
+    if (efficiency < 0.20) efficiency = 0.20;
+    if (efficiency >= 0.90) efficiency = 1.0;
+
+    const variance = 0.9 + Math.random() * 0.2;
+    const finalDelta = sign * deltaMag * efficiency * variance;
+
+    let delta = Math.max(-MaxClamp, Math.min(MaxClamp, finalDelta));
+
+    // 4. Sacrifice Logic
+    let sacrificeSwing = 0;
+    let triggeredSacrifice = false;
+    let triggerBrilliantBounty = false;
+    let logMessage = '';
+
+    // Scripted Sacrifices
+    let forceSacrifice = false;
+    const opGambit = getSkillLevel(skills, 'op_gambit');
+    const midGambit = getSkillLevel(skills, 'mid_gambit');
+    const endGambit = getSkillLevel(skills, 'end_gambit');
+
+    if (opGambit > 0 && moveNumber === 5) forceSacrifice = true;
+    if (midGambit > 0 && moveNumber === 25) forceSacrifice = true;
+    if (endGambit > 0 && moveNumber === 35) forceSacrifice = true;
+
+    if (forceSacrifice) {
+        triggeredSacrifice = true;
+        const successChance = Math.min(playerStats.sacrifices * 0.2, 100);
+        const roll = Math.random() * 100;
+
+        if (roll < successChance) {
+             sacrificeSwing = 5.0;
+             logMessage = '!! GAMBIT !! A prepared sacrifice strikes!';
+             if (skills.brilliant_bounty) triggerBrilliantBounty = true;
         } else {
-            result = 'draw';
-            logMessage = `Game drawn by move limit (${phases.maxTurns}). Stats identical.`;
+             sacrificeSwing = -2.0;
+             logMessage = 'Gambit Refuted... The sacrifice was unsound.';
+        }
+        delta += sacrificeSwing;
+
+    } else {
+        // Random Sacrifice
+        if (moveNumber > 5 && sacrificesCount < maxSacrifices) {
+            let initiator = null;
+            const playerRoll = Math.random();
+            const enemyRoll = Math.random();
+
+            if (playerRoll < sacrificeChance) initiator = 'player';
+            else if (enemyRoll < sacrificeChance) initiator = 'enemy';
+
+            if (initiator) {
+                triggeredSacrifice = true;
+                const isPlayer = initiator === 'player';
+                const actorStats = isPlayer ? playerStats : enemyStats;
+                const successChance = Math.min(actorStats.sacrifices * 0.2, 100);
+                const roll = Math.random() * 100;
+
+                if (isPlayer) {
+                    if (roll < successChance) {
+                        sacrificeSwing = 5.0;
+                        logMessage = '!! BRILLIANT SACRIFICE !! The engine didn\'t see it coming!';
+                        if (skills.brilliant_bounty) triggerBrilliantBounty = true;
+                    } else {
+                        sacrificeSwing = -2.0;
+                        logMessage = 'Unsound Sacrifice... The opponent refutes it.';
+                    }
+                } else {
+                    if (roll < successChance) {
+                        sacrificeSwing = -5.0;
+                        logMessage = '!! OPPONENT SACRIFICE !! The AI unleashes chaos!';
+                    } else {
+                        sacrificeSwing = 2.0;
+                        logMessage = 'Opponent blunders a sacrifice!';
+                    }
+                }
+                delta += sacrificeSwing;
+            }
         }
     }
-  }
-  
-  return {
-    delta,
-    newEval,
-    result,
-    phase,
-    sacrificeSwing,
-    logMessage,
-    // If forced sacrifice, return original count (do not consume). Else if triggered, increment.
-    sacrificesCount: (triggeredSacrifice && !forceSacrifice) ? sacrificesCount + 1 : sacrificesCount,
-    hasSacrificed: triggeredSacrifice,
-    triggerBrilliantBounty,
-    effectivePlayerStats: playerStats,
-    effectiveEnemyStats: enemyStats,
-    K_phase
-  };
+
+    // 5. Eval Injection
+    const opCaro = getSkillLevel(skills, 'op_caro');
+    const midBoost = getSkillLevel(skills, 'mid_boost');
+    const endBoost = getSkillLevel(skills, 'end_boost');
+
+    if (opCaro > 0 && moveNumber === 1) delta += (0.1 * opCaro);
+    if (midBoost > 0 && moveNumber === (phases.openingEnd + 1)) delta += (0.1 * midBoost);
+    if (endBoost > 0 && moveNumber === (phases.midgameEnd + 1)) delta += (0.1 * endBoost);
+
+    // Skill: Lasker's Defense
+    if (skills.lasker_defense && moveNumber > 20) {
+        if (currentEval < -1.0 && delta > 0) delta *= 2.0;
+    }
+
+    let newEval = currentEval + delta;
+
+    // Endgame Snowball
+    if (phase === PHASES.ENDGAME.name) {
+        if (newEval > 1.0 || newEval < -1.0) newEval *= 1.1;
+    }
+
+    // Resolution
+    let result = null;
+    const winThreshold = skills.decisive_blow ? 5.0 : 8.0;
+
+    if (newEval >= winThreshold) result = 'win';
+    else if (newEval <= -winThreshold) result = 'loss';
+
+    // Draw Checks
+    if (!result && moveNumber >= 30 && moveNumber < phases.maxTurns) {
+        if (newEval > -1.0 && newEval < 1.0) {
+            if (Math.random() < 0.15) {
+                result = 'draw';
+                logMessage = 'Draw agreed in deadlocked position.';
+            }
+        }
+    }
+
+    if (!result && moveNumber >= phases.maxTurns) {
+        if (skills.iron_curtain && newEval > -8.0) {
+            result = 'win';
+            logMessage = 'Iron Curtain! Survival is Victory.';
+        } else {
+            const playerAgg = playerStats.tactics + playerStats.sacrifices;
+            const enemyAgg = enemyStats.tactics + enemyStats.sacrifices;
+
+            if (playerAgg > enemyAgg) {
+                result = 'win';
+                logMessage = 'Draw avoided! Player wins by Tactical Superiority.';
+            } else if (enemyAgg > playerAgg) {
+                result = 'loss';
+                logMessage = 'Draw avoided! Opponent wins by Tactical Superiority.';
+            } else {
+                result = 'draw';
+                logMessage = `Game drawn by move limit (${phases.maxTurns}).`;
+            }
+        }
+    }
+
+    return {
+        delta,
+        newEval,
+        result,
+        phase,
+        sacrificeSwing,
+        logMessage,
+        sacrificesCount: (triggeredSacrifice && !forceSacrifice) ? sacrificesCount + 1 : sacrificesCount,
+        hasSacrificed: triggeredSacrifice,
+        triggerBrilliantBounty,
+        effectivePlayerStats: playerStats,
+        effectiveEnemyStats: enemyStats,
+        K_phase,
+        debugLogs: snapshot.debugBreakdown ? [snapshot.debugBreakdown] : []
+    };
 };
