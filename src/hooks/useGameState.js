@@ -505,11 +505,9 @@ export const useGameState = () => {
 
     setResources(prevRes => {
         const currentLevel = stats[statName];
-        // REMOVED prep_files logic
-        const hasPrepFiles = false;
 
-        // Pass statName to calculation for custom logic (Sacrifice Wall)
-        const cost = calculateUpgradeCost(currentLevel, hasPrepFiles, statName);
+        // Pass full stats to calculation for Focus Tax logic
+        const cost = calculateUpgradeCost(currentLevel, stats, statName);
 
         if (prevRes.studyTime >= cost) {
             setStats(prevStats => ({
