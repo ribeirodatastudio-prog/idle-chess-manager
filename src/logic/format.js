@@ -1,8 +1,25 @@
 export const formatNumber = (num) => {
-  if (num >= 1000000000) return (num / 1000000000).toFixed(2) + 'B';
-  if (num >= 1000000) return (num / 1000000).toFixed(2) + 'M';
-  if (num >= 1000) return (num / 1000).toFixed(2) + 'k';
-  return num.toFixed(1);
+  if (num >= 1e12) {
+      return num.toExponential(2).replace('+', '');
+  }
+  if (num >= 1e9) {
+      const val = num / 1e9;
+      return parseFloat(val.toPrecision(3)) + 'B';
+  }
+  if (num >= 1e6) {
+      const val = num / 1e6;
+      let p = parseFloat(val.toPrecision(3));
+      if (p >= 1000) return (p/1000) + 'B';
+      return p + 'M';
+  }
+  if (num >= 1e3) {
+      const val = num / 1e3;
+      let p = parseFloat(val.toPrecision(3));
+      if (p >= 1000) return (p/1000) + 'M';
+      return p + 'k';
+  }
+  if (num >= 100) return num.toFixed(0);
+  return parseFloat(num.toPrecision(3)).toString();
 };
 
 export const formatTime = (seconds) => {

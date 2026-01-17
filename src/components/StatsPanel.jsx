@@ -2,6 +2,7 @@ import React from 'react';
 import { calculateUpgradeCost } from '../logic/math';
 import { formatNumber } from '../logic/format';
 import { Sword, Shield, Skull, BookOpen, Disc, Flag } from 'lucide-react';
+import { useRepeatingPress } from '../hooks/useRepeatingPress';
 
 const STAT_CONFIG = {
   opening: { label: 'Opening', icon: BookOpen },
@@ -30,9 +31,11 @@ const StatCard = ({ statKey, level, resources, onUpgrade }) => {
   // For phases, I'll show Label.
   const showIcon = ['tactics', 'sacrifices', 'defense'].includes(statKey);
 
+  const pressHandlers = useRepeatingPress(() => onUpgrade(statKey));
+
   return (
     <button
-      onClick={() => onUpgrade(statKey)}
+      {...pressHandlers}
       disabled={!canAfford || isMaxed}
       className={`relative flex flex-col items-center justify-center p-3 rounded-xl transition-all duration-300 h-28 w-full group
         glass-card

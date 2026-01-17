@@ -2,9 +2,12 @@ import React, { useState } from 'react';
 import { SKILLS, getSkillById } from '../logic/skills';
 import { SkillTreeModal } from './SkillTreeModal';
 import { GraduationCap } from 'lucide-react';
+import { useRepeatingPress } from '../hooks/useRepeatingPress';
 
 const SkillCard = ({ skill, owned, canAfford, isLocked, conflictingSkill, onPurchase }) => {
   const costLabel = skill.costType === 'SP' ? `${skill.spCost} SP` : `${skill.cost} AP`;
+
+  const pressHandlers = useRepeatingPress(() => onPurchase(skill.id));
 
   return (
     <div className={`p-4 rounded-xl mb-3 transition-all duration-300 border
@@ -28,7 +31,7 @@ const SkillCard = ({ skill, owned, canAfford, isLocked, conflictingSkill, onPurc
               </span>
           ) : (
               <button
-                 onClick={() => onPurchase(skill.id)}
+                 {...pressHandlers}
                  disabled={!canAfford}
                  className={`text-xs px-3 py-1.5 rounded-lg font-bold transition-all ${
                      canAfford 
