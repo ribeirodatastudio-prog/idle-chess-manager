@@ -14,7 +14,7 @@ export const ArenaPanel = memo(({
   const { evalBar, moveNumber, phase, result } = simulationState;
 
   // Local state for mode selection (only when inactive)
-  const [selectedMode, setSelectedMode] = useState('rapid'); // 'rapid', 'blitz', 'classical'
+  const [selectedMode, setSelectedMode] = useState('bullet'); // 'bullet', 'blitz', 'rapid', 'classical', 'chess960'
 
   const rankData = active ? ranks[tournament.activeMode] : ranks[selectedMode];
 

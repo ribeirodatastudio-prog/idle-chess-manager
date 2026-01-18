@@ -31,12 +31,12 @@ const INITIAL_SKILLS = {}; // id -> boolean
 const INITIAL_TOURNAMENT = {
   active: false,
   opponentStats: null,
-  activeMode: null, // 'rapid', 'blitz', 'classical', 'bullet', 'chess960'
+  activeMode: null, // 'bullet', 'blitz', 'rapid', 'classical', 'chess960'
   ranks: {
-    rapid: { tournamentIndex: 0, tierIndex: 0, matchIndex: 0 },
-    blitz: { tournamentIndex: 0, tierIndex: 0, matchIndex: 0 },
-    classical: { tournamentIndex: 0, tierIndex: 0, matchIndex: 0 },
     bullet: { tournamentIndex: 0, tierIndex: 0, matchIndex: 0 },
+    blitz: { tournamentIndex: 0, tierIndex: 0, matchIndex: 0 },
+    rapid: { tournamentIndex: 0, tierIndex: 0, matchIndex: 0 },
+    classical: { tournamentIndex: 0, tierIndex: 0, matchIndex: 0 },
     chess960: { tournamentIndex: 0, tierIndex: 0, matchIndex: 0 }
   }
 };
@@ -538,7 +538,7 @@ export const useGameState = () => {
   const endTournament = useCallback((result, finalMoveCount) => {
       setTournament(prev => {
           if (result === 'win') {
-              const currentMode = prev.activeMode || 'rapid';
+              const currentMode = prev.activeMode || 'bullet';
               const currentRank = prev.ranks[currentMode];
 
               // Check for Tier Clear (Match 0, 1, 2 -> Clear if matchIndex + 1 == 3)
@@ -796,7 +796,7 @@ export const useGameState = () => {
       if (!currentRes.isDevMode) return;
 
       const currentTournament = stateRef.current.tournament;
-      const targetMode = 'rapid';
+      const targetMode = 'bullet';
       const currentRank = currentTournament.ranks[targetMode];
 
       const tiersSkipped = TIERS_PER_TOURNAMENT - currentRank.tierIndex;
