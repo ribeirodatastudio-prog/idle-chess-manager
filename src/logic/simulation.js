@@ -199,7 +199,7 @@ export const getPhaseConfig = (skills = {}) => {
   return { openingEnd, midgameEnd, maxTurns };
 };
 
-export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, currentEval, skills = {}, phase1Won = false, move11Eval = 0, mode = 'rapid', sacrificesCount = 0, phaseConfig = null, phase2Won = false) => {
+export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, currentEval, skills = {}, phase1Won = false, move11Eval = 0, mode = 'bullet', sacrificesCount = 0, phaseConfig = null, phase2Won = false) => {
   // --- PREPARATION & WEIGHTS ---
   const playerStats = applyModeWeights(rawPlayerStats, mode);
   const enemyStats = applyModeWeights(rawEnemyStats, mode);

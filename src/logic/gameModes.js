@@ -1,8 +1,8 @@
 export const GAME_MODES = [
   {
-    id: 'rapid',
-    label: 'Rapid',
-    description: 'Standard Weights | Sac Chance 2%'
+    id: 'bullet',
+    label: 'Bullet',
+    description: 'Tactics x2.5 | Others x0.1 | Sac Chance 10%'
   },
   {
     id: 'blitz',
@@ -10,14 +10,14 @@ export const GAME_MODES = [
     description: 'Instincts x1.8 | Theory x0.6 | Sac Chance 5%'
   },
   {
+    id: 'rapid',
+    label: 'Rapid',
+    description: 'Standard Weights | Sac Chance 2%'
+  },
+  {
     id: 'classical',
     label: 'Classical',
     description: 'Theory x1.5 | Defense x1.5 | Instincts x0.6 | Sac Chance 1%'
-  },
-  {
-    id: 'bullet',
-    label: 'Bullet',
-    description: 'Tactics x2.5 | Others x0.1 | Sac Chance 10%'
   },
   {
     id: 'chess960',
