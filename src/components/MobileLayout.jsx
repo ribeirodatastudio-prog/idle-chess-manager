@@ -15,7 +15,10 @@ export const MobileLayout = ({
     actions,
     simulationState,
     onStartTournament,
-    logs
+    logs,
+    canSkip,
+    onSkip,
+    opacityState = { peripheral: 1.0 }
 }) => {
     const [activeTab, setActiveTab] = useState('arena');
 
@@ -43,6 +46,8 @@ export const MobileLayout = ({
                         tournament={state.tournament}
                         simulationState={simulationState}
                         onStartTournament={onStartTournament}
+                        canSkip={canSkip}
+                        onSkip={onSkip}
                     />
                 );
             case 'stats':
@@ -75,7 +80,10 @@ export const MobileLayout = ({
     return (
         <div className="h-screen w-full bg-black text-gray-100 font-sans overflow-hidden flex flex-col relative">
             {/* Top Bar */}
-            <div className="h-14 shrink-0 bg-gray-900 border-b border-gray-800 flex items-center justify-between px-4 z-20 shadow-md">
+            <div
+                style={{ opacity: opacityState.peripheral, transition: 'opacity 1s ease', pointerEvents: opacityState.peripheral === 0 ? 'none' : 'auto' }}
+                className="h-14 shrink-0 bg-gray-900 border-b border-gray-800 flex items-center justify-between px-4 z-20 shadow-md"
+            >
                  {/* Left: Elo */}
                  <div className="flex flex-col">
                      <span className="text-[10px] text-gray-500 uppercase tracking-wider">Elo</span>
@@ -115,7 +123,10 @@ export const MobileLayout = ({
             </div>
 
             {/* Bottom Nav */}
-            <div className="fixed bottom-0 left-0 right-0 h-16 glass-card border-t border-gray-700/50 flex justify-around items-center z-50 pb-safe">
+            <div
+                style={{ opacity: opacityState.peripheral, transition: 'opacity 1s ease', pointerEvents: opacityState.peripheral === 0 ? 'none' : 'auto' }}
+                className="fixed bottom-0 left-0 right-0 h-16 glass-card border-t border-gray-700/50 flex justify-around items-center z-50 pb-safe"
+            >
                 <NavButton
                     id="arena"
                     icon={Sword}

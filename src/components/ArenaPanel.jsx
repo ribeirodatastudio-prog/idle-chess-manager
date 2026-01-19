@@ -3,6 +3,74 @@ import { TOURNAMENT_CONFIG } from '../logic/tournaments';
 import { GAME_MODES } from '../logic/gameModes';
 import { getEffectivePhaseStats } from '../logic/simulation';
 import { ChessBoardVisualizer } from './ChessBoardVisualizer';
+import { Sword } from 'lucide-react';
+
+// New Component: MoveFeedback
+const MoveFeedback = ({ delta, maxClamp }) => {
+    if (!delta || !maxClamp) return null;
+
+    const absDelta = Math.abs(delta);
+    const isPositive = delta > 0;
+    const isBrilliant = absDelta >= (maxClamp * 0.5);
+
+    let symbol = '';
+    let colorClass = '';
+
+    if (isBrilliant) {
+        symbol = isPositive ? '!!' : '??';
+        colorClass = isPositive ? 'text-yellow-400 drop-shadow-[0_0_10px_rgba(250,204,21,0.8)]' : 'text-red-600 drop-shadow-[0_0_10px_rgba(220,38,38,0.8)]';
+    } else {
+        symbol = isPositive ? '!' : '?';
+        colorClass = isPositive ? 'text-green-400' : 'text-orange-400';
+    }
+
+    return (
+        <div
+             key={Math.random()} // Force re-render for animation on each move
+             className={`absolute top-1/4 right-1/4 text-4xl font-black ${colorClass} animate-bounce pointer-events-none z-50`}
+        >
+            {symbol}
+        </div>
+    );
+};
+
+// New Component: SacrificeOverlay
+const SacrificeOverlay = ({ stage }) => { // stage: 'drama', 'success', 'fail'
+    if (!stage) return null;
+
+    return (
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm animate-fade-in rounded-lg">
+            {stage === 'drama' && (
+                 <>
+                    <div className="text-purple-500 animate-pulse mb-4">
+                        <Sword size={64} />
+                    </div>
+                    <h2 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600 tracking-widest animate-pulse">
+                        SACRIFICE
+                    </h2>
+                 </>
+            )}
+
+            {stage === 'success' && (
+                 <div className="animate-bounce text-center">
+                    <h2 className="text-5xl font-black text-yellow-400 drop-shadow-[0_0_20px_rgba(250,204,21,1)] mb-2">
+                        SUCCESS!!
+                    </h2>
+                    <p className="text-white font-mono">Brilliant!</p>
+                 </div>
+            )}
+
+            {stage === 'fail' && (
+                 <div className="animate-shake text-center">
+                    <h2 className="text-5xl font-black text-red-600 drop-shadow-[0_0_20px_rgba(220,38,38,1)] mb-2">
+                        REFUTED
+                    </h2>
+                     <p className="text-gray-400 font-mono">Blunder...</p>
+                 </div>
+            )}
+        </div>
+    );
+};
 
 const MATCH_INDICATORS = [0, 1, 2];
 
@@ -11,10 +79,12 @@ export const ArenaPanel = memo(({
   simulationState, 
   onStartTournament,
   stats,
-  skills
+  skills,
+  canSkip,
+  onSkip
 }) => {
   const { active, ranks, opponentStats } = tournament;
-  const { evalBar, moveNumber, phase, result } = simulationState;
+  const { evalBar, moveNumber, phase, result, delta, MaxClamp, sacrificeStage } = simulationState;
 
   // Local state for mode selection (only when inactive)
   const [selectedMode, setSelectedMode] = useState('bullet'); // 'bullet', 'blitz', 'rapid', 'classical', 'chess960'
@@ -116,6 +186,16 @@ export const ArenaPanel = memo(({
                   {identity.hint}
               </p>
           </div>
+      )}
+
+      {/* Skip Button */}
+      {active && canSkip && (
+          <button
+              onClick={onSkip}
+              className="absolute top-16 right-4 z-50 bg-gray-800/80 hover:bg-gray-700 text-white text-xs font-bold px-3 py-1.5 rounded-full border border-gray-600 backdrop-blur shadow-lg animate-fade-in"
+          >
+              Skip »
+          </button>
       )}
 
       {/* Evaluation Bar (Active Match Only) */}
@@ -223,7 +303,10 @@ export const ArenaPanel = memo(({
             )}
           </div>
         ) : (
-          <div className="w-full max-w-md bg-gray-800 p-4 sm:p-6 rounded-lg border border-gray-700 shadow-xl">
+          <div className="w-full max-w-md bg-gray-800 p-4 sm:p-6 rounded-lg border border-gray-700 shadow-xl relative">
+            <SacrificeOverlay stage={sacrificeStage} />
+            <MoveFeedback delta={delta} maxClamp={MaxClamp} />
+
             <div className="flex justify-between items-center mb-4 border-b border-gray-700 pb-4">
               <div className="text-left">
                 <div className="text-xs text-gray-500 uppercase tracking-wider">Player</div>

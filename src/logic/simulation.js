@@ -736,8 +736,62 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
     triggerBrilliantBounty,
     effectivePlayerStats: playerStats,
     effectiveEnemyStats: enemyStats,
-    K_phase
+    K_phase,
+    MaxClamp // Exported for UI Notation
   };
+};
+
+export const simulateGame = (rawPlayerStats, rawEnemyStats, skills = {}, mode = 'bullet') => {
+  const history = [];
+  const phaseConfig = getPhaseConfig(skills);
+
+  // Initial Eval Logic (Gambiteer)
+  let currentEval = skills.gambiteer ? -0.5 : 0.3;
+
+  let moveNumber = 0;
+  let result = null;
+  let phase1Won = false;
+  let phase2Won = false;
+  let move11Eval = 0;
+  let sacrificesCount = 0;
+
+  // Safety break at 100 moves (should finish by 50-60)
+  while (!result && moveNumber < 100) {
+      moveNumber++;
+
+      const moveResult = calculateMove(
+          moveNumber,
+          rawPlayerStats,
+          rawEnemyStats,
+          currentEval,
+          skills,
+          phase1Won,
+          move11Eval,
+          mode,
+          sacrificesCount,
+          phaseConfig,
+          phase2Won
+      );
+
+      // Update State Triggers
+      if (moveNumber === phaseConfig.openingEnd && moveResult.newEval > 0) phase1Won = true;
+      if (moveNumber === phaseConfig.midgameEnd && moveResult.newEval > 0) phase2Won = true;
+      if (moveNumber === (phaseConfig.openingEnd + 1)) move11Eval = moveResult.newEval;
+
+      currentEval = moveResult.newEval;
+      result = moveResult.result;
+      sacrificesCount = moveResult.sacrificesCount;
+
+      history.push({
+          moveNumber,
+          ...moveResult,
+          phase1Won,
+          phase2Won,
+          move11Eval // Store snapshot for debugging/replay consistency
+      });
+  }
+
+  return history;
 };
 
 export const getEffectivePhaseStats = (rawPlayerStats, rawEnemyStats, skills = {}, mode = 'bullet') => {
