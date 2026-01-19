@@ -497,6 +497,7 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
   
   let sacrificeSwing = 0;
   let triggeredSacrifice = false;
+  let sacrificeInitiator = null;
   let triggerBrilliantBounty = false;
 
   // Determine Sacrifice Limits and Chance based on Mode
@@ -562,6 +563,7 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
 
   if (forceSacrifice) {
       triggeredSacrifice = true;
+      sacrificeInitiator = 'player';
       // We still need to determine success/fail, defaulting to Player initiation since it's a Player Skill
 
       const actorStats = playerStats;
@@ -576,11 +578,11 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
 
       if (isSuccess) {
           sacrificeSwing = 5.0;
-          logMessage = '!! GAMBIT !! A prepared sacrifice strikes!';
+          logMessage = 'BRILLIANT!! A prepared gambit strikes!';
           if (skills.brilliant_bounty) triggerBrilliantBounty = true;
       } else {
           sacrificeSwing = -2.0;
-          logMessage = 'Gambit Refuted... The sacrifice was unsound.';
+          logMessage = 'REFUTED. The gambit was unsound.';
       }
 
       delta += sacrificeSwing;
@@ -600,6 +602,7 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
 
         if (initiator) {
             triggeredSacrifice = true;
+            sacrificeInitiator = initiator;
             const isPlayer = initiator === 'player';
             const actorStats = isPlayer ? playerStats : enemyStats;
 
@@ -615,19 +618,19 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
             if (isPlayer) {
                 if (isSuccess) {
                     sacrificeSwing = 5.0;
-                    logMessage = '!! BRILLIANT SACRIFICE !! The engine didn\'t see it coming!';
+                    logMessage = 'BRILLIANT!! The engine didn\'t see it coming!';
                     if (skills.brilliant_bounty) triggerBrilliantBounty = true;
                 } else {
                     sacrificeSwing = -2.0;
-                    logMessage = 'Unsound Sacrifice... The opponent refutes it.';
+                    logMessage = 'UNSOUND... The opponent refutes it.';
                 }
             } else {
                 if (isSuccess) {
                     sacrificeSwing = -5.0;
-                    logMessage = '!! OPPONENT SACRIFICE !! The AI unleashes chaos!';
+                    logMessage = 'DEVASTATING! The AI unleashes chaos!';
                 } else {
                     sacrificeSwing = 2.0;
-                    logMessage = 'Opponent blunders a sacrifice!';
+                    logMessage = 'DENIED! You refuted the attack!';
                 }
             }
             delta += sacrificeSwing;
@@ -733,6 +736,7 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
     // If forced sacrifice, return original count (do not consume). Else if triggered, increment.
     sacrificesCount: (triggeredSacrifice && !forceSacrifice) ? sacrificesCount + 1 : sacrificesCount,
     hasSacrificed: triggeredSacrifice,
+    sacrificeInitiator,
     triggerBrilliantBounty,
     effectivePlayerStats: playerStats,
     effectiveEnemyStats: enemyStats,
