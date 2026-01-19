@@ -1,6 +1,7 @@
-import React, { useState, memo } from 'react';
+import React, { useState, memo, useMemo } from 'react';
 import { TOURNAMENT_CONFIG } from '../logic/tournaments';
 import { GAME_MODES } from '../logic/gameModes';
+import { getEffectivePhaseStats } from '../logic/simulation';
 import { ChessBoardVisualizer } from './ChessBoardVisualizer';
 
 const MATCH_INDICATORS = [0, 1, 2];
@@ -8,7 +9,9 @@ const MATCH_INDICATORS = [0, 1, 2];
 export const ArenaPanel = memo(({
   tournament, 
   simulationState, 
-  onStartTournament 
+  onStartTournament,
+  stats,
+  skills
 }) => {
   const { active, ranks, opponentStats } = tournament;
   const { evalBar, moveNumber, phase, result } = simulationState;
@@ -32,7 +35,16 @@ export const ArenaPanel = memo(({
   const config = TOURNAMENT_CONFIG[tIdx] || TOURNAMENT_CONFIG[0];
   const tournamentName = config.name;
 
-  const identity = opponentStats?.identity;
+  // Scouting Data
+  const nextOpponent = tournament.nextOpponents?.[selectedMode];
+  // If active, show opponentStats identity, else show scouted identity
+  const identity = active ? opponentStats?.identity : nextOpponent?.identity;
+
+  // Calculate Comparison Stats for Scouting
+  const comparisonStats = useMemo(() => {
+      if (!nextOpponent || active) return null;
+      return getEffectivePhaseStats(stats, nextOpponent.stats, skills, selectedMode);
+  }, [stats, nextOpponent, skills, selectedMode, active]);
 
   // Calculate bar width percentage (0 to 100)
   // Range is -8 to +8 (New Threshold). Total range 16.
@@ -106,7 +118,8 @@ export const ArenaPanel = memo(({
           </div>
       )}
 
-      {/* Evaluation Bar */}
+      {/* Evaluation Bar (Active Match Only) */}
+      {active && (
       <div className="mb-6 relative z-10 shrink-0 px-2">
         <div className="flex justify-between text-[10px] text-gray-500 mb-1 font-mono uppercase tracking-widest">
           <span className="font-bold text-emerald-500">Player</span>
@@ -141,27 +154,70 @@ export const ArenaPanel = memo(({
            ></div>
         </div>
       </div>
+      )}
 
       {/* Main Action Area */}
       <div className="flex-grow flex flex-col justify-center items-center relative z-10">
         {!active ? (
-          <div className="text-center animate-fade-in w-full flex flex-col items-center">
-            <p className="text-gray-400 mb-4 text-sm sm:text-base max-w-xs mx-auto">
-              Prepare your stats. <br/>
-              <span className="text-yellow-500 uppercase text-xs font-bold">
-                  {GAME_MODES.find(m => m.id === selectedMode)?.description}
-              </span>
-            </p>
+          <div className="w-full flex flex-col items-center animate-fade-in">
+             {/* Scouting Report */}
+             {identity && (
+                <div className="mb-4 text-center w-full max-w-sm">
+                    <h3 className={`text-xl font-black uppercase tracking-wide ${identity.color} drop-shadow-md mb-1`}>
+                        {identity.title}
+                    </h3>
+                    <p className="text-xs text-gray-400 italic mb-4 px-4">
+                        "{identity.hint}"
+                    </p>
+
+                    {/* Tale of the Tape */}
+                    {comparisonStats && (
+                        <div className="bg-gray-800/50 p-3 rounded-lg border border-gray-700 space-y-3 mb-4">
+                            {['Opening', 'Midgame', 'Endgame'].map(phase => {
+                                const pVal = comparisonStats.player[phase];
+                                const eVal = comparisonStats.enemy[phase];
+                                const isAdvantage = pVal >= eVal;
+                                const diff = pVal - eVal;
+                                const total = pVal + eVal;
+                                const ratio = total > 0 ? (pVal / total) * 100 : 50;
+
+                                return (
+                                    <div key={phase} className="flex flex-col gap-1">
+                                        <div className="flex justify-between text-[10px] uppercase font-bold tracking-wider text-gray-500">
+                                            <span>{phase}</span>
+                                            <span className={isAdvantage ? 'text-green-400' : 'text-red-400'}>
+                                                {isAdvantage ? '+' : ''}{diff.toFixed(1)}
+                                            </span>
+                                        </div>
+                                        <div className="h-2 bg-gray-700 rounded-full overflow-hidden relative">
+                                            <div
+                                                className={`absolute top-0 bottom-0 left-0 transition-all duration-500 ${isAdvantage ? 'bg-green-500' : 'bg-red-500'}`}
+                                                style={{ width: `${ratio}%` }}
+                                            ></div>
+                                            {/* Mid Marker */}
+                                            <div className="absolute top-0 bottom-0 left-1/2 w-0.5 bg-black/50"></div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            )}
 
             <button
               onClick={handleStart}
-              className="bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-8 w-full sm:w-auto rounded-lg sm:rounded-full shadow-[0_0_20px_rgba(34,197,94,0.4)] transform hover:scale-105 transition-all text-lg"
+              className="bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-8 w-full sm:w-auto rounded-lg sm:rounded-full shadow-[0_0_20px_rgba(34,197,94,0.4)] transform hover:scale-105 transition-all text-lg mb-2"
             >
               Start {GAME_MODES.find(m => m.id === selectedMode)?.label} Match
             </button>
 
+            <p className="text-gray-500 text-xs mb-4">
+               Tier {tier + 1} • {GAME_MODES.find(m => m.id === selectedMode)?.description}
+            </p>
+
             {result && (
-              <div className={`mt-4 text-lg sm:text-xl font-bold ${result === 'win' ? 'text-green-400' : 'text-red-400'}`}>
+              <div className={`mt-2 text-lg sm:text-xl font-bold ${result === 'win' ? 'text-green-400' : 'text-red-400'}`}>
                 Result: {result.toUpperCase()}
               </div>
             )}
