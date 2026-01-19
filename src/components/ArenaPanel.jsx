@@ -1,38 +1,11 @@
-import React, { useState, memo, useMemo } from 'react';
+import React, { useState, memo, useMemo, useEffect } from 'react';
 import { TOURNAMENT_CONFIG } from '../logic/tournaments';
 import { GAME_MODES } from '../logic/gameModes';
 import { getEffectivePhaseStats } from '../logic/simulation';
 import { ChessBoardVisualizer } from './ChessBoardVisualizer';
-import { Sword, Shield } from 'lucide-react';
-
-// New Component: MoveFeedback
-const MoveFeedback = ({ delta, maxClamp }) => {
-    if (!delta || !maxClamp) return null;
-
-    const absDelta = Math.abs(delta);
-    const isPositive = delta > 0;
-    const isBrilliant = absDelta >= (maxClamp * 0.5);
-
-    let symbol = '';
-    let colorClass = '';
-
-    if (isBrilliant) {
-        symbol = isPositive ? '!!' : '??';
-        colorClass = isPositive ? 'text-yellow-400 drop-shadow-[0_0_10px_rgba(250,204,21,0.8)]' : 'text-red-600 drop-shadow-[0_0_10px_rgba(220,38,38,0.8)]';
-    } else {
-        symbol = isPositive ? '!' : '?';
-        colorClass = isPositive ? 'text-green-400' : 'text-orange-400';
-    }
-
-    return (
-        <div
-             key={Math.random()} // Force re-render for animation on each move
-             className={`absolute top-1/4 right-1/4 text-4xl font-black ${colorClass} animate-bounce pointer-events-none z-50`}
-        >
-            {symbol}
-        </div>
-    );
-};
+import { Sword, Shield, Eye, EyeOff } from 'lucide-react';
+import { FloatingFeedback } from './FloatingFeedback';
+import { MatchResultModal } from './MatchResultModal';
 
 // New Component: SacrificeOverlay
 const SacrificeOverlay = ({ stage, initiator }) => { // stage: 'drama', 'success', 'fail'
@@ -160,10 +133,25 @@ export const ArenaPanel = memo(({
   stats,
   skills,
   canSkip,
-  onSkip
+  onSkip,
+  showLogs,
+  setShowLogs
 }) => {
   const { active, ranks, opponentStats } = tournament;
   const { evalBar, moveNumber, phase, result, delta, MaxClamp, sacrificeStage, sacrificeInitiator } = simulationState;
+
+  // Local state for Result Modal
+  const [showResultModal, setShowResultModal] = useState(false);
+
+  useEffect(() => {
+    if (result && !active) {
+        setShowResultModal(true);
+    }
+  }, [result, active]);
+
+  const handleModalContinue = () => {
+      setShowResultModal(false);
+  };
 
   // Calculate specific bad news condition for screen shake
   const isEnemyBadNews = (sacrificeStage === 'drama' && sacrificeInitiator === 'enemy') ||
@@ -224,6 +212,17 @@ export const ArenaPanel = memo(({
     <div className={`bg-gray-900 p-4 rounded-xl shadow-2xl h-full flex flex-col border border-gray-800 relative overflow-hidden ${isEnemyBadNews ? 'animate-shake' : ''}`}>
       {/* Background Visuals */}
       <div className="absolute inset-0 opacity-5 pointer-events-none bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-gray-700 via-gray-900 to-black"></div>
+
+      {/* Log Toggle Button */}
+      {active && (
+        <button
+            onClick={() => setShowLogs(!showLogs)}
+            className="absolute top-4 left-4 z-50 p-2 bg-gray-800/80 text-gray-400 hover:text-white rounded-full border border-gray-700 transition-colors shadow-lg backdrop-blur"
+            title={showLogs ? "Hide Match Log" : "Show Match Log"}
+        >
+            {showLogs ? <EyeOff size={20} /> : <Eye size={20} />}
+        </button>
+      )}
 
       {/* Header & Mode Selector */}
       <div className="relative z-10 shrink-0 mb-4">
@@ -398,7 +397,7 @@ export const ArenaPanel = memo(({
         ) : (
           <div className="w-full max-w-md bg-gray-800 p-4 sm:p-6 rounded-lg border border-gray-700 shadow-xl relative">
             <SacrificeOverlay stage={sacrificeStage} initiator={sacrificeInitiator} />
-            <MoveFeedback delta={delta} maxClamp={MaxClamp} />
+            <FloatingFeedback delta={delta} maxClamp={MaxClamp} moveNumber={moveNumber} />
 
             <div className="flex justify-between items-center mb-4 border-b border-gray-700 pb-4">
               <div className="text-left">
@@ -423,6 +422,15 @@ export const ArenaPanel = memo(({
                />
             </div>
           </div>
+        )}
+
+        {/* Match Result Modal */}
+        {showResultModal && (
+            <MatchResultModal
+                result={result}
+                matchHistory={simulationState.matchHistory}
+                onContinue={handleModalContinue}
+            />
         )}
       </div>
     </div>
