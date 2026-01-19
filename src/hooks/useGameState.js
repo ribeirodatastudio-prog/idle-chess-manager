@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { generateOpponentStats } from '../logic/simulation';
 import { calculatePassiveIncomePerSecond, calculateUpgradeCost } from '../logic/math';
 import { getSkillById, calculateTenureMultiplier, calculateBranchSP, calculateInstinctMultiplier } from '../logic/skills';
 import { TOURNAMENT_CONFIG, TIERS_PER_TOURNAMENT, MATCHES_PER_TIER } from '../logic/tournaments';
@@ -38,7 +39,8 @@ const INITIAL_TOURNAMENT = {
     rapid: { tournamentIndex: 0, tierIndex: 0, matchIndex: 0 },
     classical: { tournamentIndex: 0, tierIndex: 0, matchIndex: 0 },
     chess960: { tournamentIndex: 0, tierIndex: 0, matchIndex: 0 }
-  }
+  },
+  nextOpponents: {} // stored by mode: { bullet: OpponentStats, ... }
 };
 
 const INITIAL_PUZZLE_STATS = {
@@ -213,7 +215,10 @@ export const useGameState = () => {
             // If missing (undefined), it stays as default from INITIAL_TOURNAMENT.ranks
         });
 
-        return { ...INITIAL_TOURNAMENT, ...saved.tournament, ranks: migratedRanks };
+        // Migration 3: Ensure nextOpponents exists
+        const nextOpponents = saved.tournament.nextOpponents || {};
+
+        return { ...INITIAL_TOURNAMENT, ...saved.tournament, ranks: migratedRanks, nextOpponents };
     }
     return { ...INITIAL_TOURNAMENT };
   });
@@ -282,6 +287,28 @@ export const useGameState = () => {
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [persistState]);
+
+  // Auto-Generate Opponents for Modes that miss them
+  useEffect(() => {
+      setTournament(prev => {
+          const newNextOpponents = { ...prev.nextOpponents };
+          let changed = false;
+
+          GAME_MODES.forEach(modeObj => {
+              const mode = modeObj.id;
+              if (!newNextOpponents[mode]) {
+                  const rank = prev.ranks[mode];
+                  newNextOpponents[mode] = generateOpponentStats(rank);
+                  changed = true;
+              }
+          });
+
+          if (changed) {
+              return { ...prev, nextOpponents: newNextOpponents };
+          }
+          return prev;
+      });
+  }, []); // Run once on mount/load
 
   // Derived Values
   const totalWins = useMemo(() => {
@@ -526,13 +553,21 @@ export const useGameState = () => {
       }
   }, [availableAbilityPoints]);
 
-  const startTournament = useCallback((opponentStats, mode) => {
-      setTournament(prev => ({
-          ...prev,
-          active: true,
-          activeMode: mode,
-          opponentStats
-      }));
+  const startTournament = useCallback((mode) => {
+      setTournament(prev => {
+          // Use stored opponent
+          const storedOpponent = prev.nextOpponents[mode];
+          // If for some reason missing (edge case), generate one?
+          // (Should be handled by useEffect, but safe fallback logic is good)
+          // For now assume it exists as per useEffect logic.
+
+          return {
+              ...prev,
+              active: true,
+              activeMode: mode,
+              opponentStats: storedOpponent
+          };
+      });
   }, []);
 
   const endTournament = useCallback((result, finalMoveCount) => {
@@ -608,17 +643,25 @@ export const useGameState = () => {
                   reviewTokens: Math.min(3, (res.reviewTokens || 0) + tokenAward)
               }));
 
+              // Prepare Next Rank & Opponent
+              const nextRank = {
+                  tournamentIndex: newTourn,
+                  tierIndex: newTier,
+                  matchIndex: newMatch
+              };
+              const nextOpponent = generateOpponentStats(nextRank);
+
               return {
                   ...prev,
                   active: false,
                   activeMode: null,
                   ranks: {
                       ...prev.ranks,
-                      [currentMode]: {
-                          tournamentIndex: newTourn,
-                          tierIndex: newTier,
-                          matchIndex: newMatch
-                      }
+                      [currentMode]: nextRank
+                  },
+                  nextOpponents: {
+                      ...prev.nextOpponents,
+                      [currentMode]: nextOpponent
                   }
               };
           } else {

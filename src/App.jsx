@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useGameState } from './hooks/useGameState';
-import { generateOpponentStats, calculateMove, PHASES, getPhaseConfig } from './logic/simulation';
+import { calculateMove, PHASES, getPhaseConfig } from './logic/simulation';
 import { StatsPanel, StatsHeader } from './components/StatsPanel';
 import { ArenaPanel } from './components/ArenaPanel';
 import { LogsPanel } from './components/LogsPanel';
@@ -106,6 +106,8 @@ const DesktopLayout = ({
             tournament={state.tournament}
             simulationState={simulationState}
             onStartTournament={handleStartTournament}
+            stats={state.stats}
+            skills={state.skills}
           />
         </div>
 
@@ -159,12 +161,6 @@ function App() {
 
   // Start Tournament Handler (Updated for Modes)
   const handleStartTournament = useCallback((mode) => {
-    // Generate opponent based on current rank object
-    const currentModeRank = state.tournament.ranks[mode];
-
-    // Generate FULL opponent stats (including identity)
-    const fullOpponentStats = generateOpponentStats(currentModeRank);
-    
     // Check for Gambiteer skill
     const startEval = state.skills['gambiteer'] ? -0.5 : 0.3;
 
@@ -184,9 +180,9 @@ function App() {
     simulationStateRef.current = initialState;
     setLogs([]);
     
-    // Update global state - passing the FULL object to preserve identity
-    actions.startTournament(fullOpponentStats, mode);
-  }, [state.tournament.ranks, actions, state.skills]);
+    // Update global state - just pass mode, opponent is pre-generated
+    actions.startTournament(mode);
+  }, [actions, state.skills]);
 
   // Simulation Loop
   useEffect(() => {

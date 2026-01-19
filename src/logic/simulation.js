@@ -739,3 +739,168 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
     K_phase
   };
 };
+
+export const getEffectivePhaseStats = (rawPlayerStats, rawEnemyStats, skills = {}, mode = 'bullet') => {
+  const phases = getPhaseConfig(skills);
+  const phasesList = [
+      { name: 'Opening', move: 1 },
+      { name: 'Midgame', move: phases.openingEnd + 1 },
+      { name: 'Endgame', move: phases.midgameEnd + 1 }
+  ];
+
+  const result = {
+      player: { Opening: 0, Midgame: 0, Endgame: 0 },
+      enemy: { Opening: 0, Midgame: 0, Endgame: 0 }
+  };
+
+  phasesList.forEach(p => {
+      const moveNumber = p.move;
+
+      // 1. Preparation
+      const playerStats = applyModeWeights(rawPlayerStats, mode);
+      const enemyStats = applyModeWeights(rawEnemyStats, mode);
+
+      // 2. Skill Modifiers (Stats)
+      if (skills.study_opening) playerStats.opening *= 1.1;
+      if (skills.study_midgame) playerStats.midgame *= 1.1;
+      if (skills.study_endgame) playerStats.endgame *= 1.1;
+
+      if (skills.instinct_tactics) playerStats.tactics *= 1.1;
+      if (skills.instinct_defense) playerStats.defense *= 1.1;
+
+      // Instinct Debuffs
+      const tacDebLvl = getSkillLevel(skills, 'inst_tac_deb');
+      const defDebLvl = getSkillLevel(skills, 'inst_def_deb');
+      const sacDebLvl = getSkillLevel(skills, 'inst_sac_deb');
+
+      if (tacDebLvl > 0) enemyStats.tactics *= (1 - (0.01 * tacDebLvl));
+      if (defDebLvl > 0) enemyStats.defense *= (1 - (0.01 * defDebLvl));
+      if (sacDebLvl > 0) enemyStats.endgame *= (1 - (0.01 * sacDebLvl));
+
+      // Instinct Momentum (Scaling)
+      const tacScaleLvl = getSkillLevel(skills, 'inst_tac_scale');
+      const defScaleLvl = getSkillLevel(skills, 'inst_def_scale');
+
+      if (tacScaleLvl > 0) playerStats.tactics *= Math.pow(1 + (0.005 * tacScaleLvl), moveNumber);
+      if (defScaleLvl > 0) playerStats.defense *= Math.pow(1 + (0.005 * defScaleLvl), moveNumber);
+
+      // Chess 960
+      if (mode === 'chess960') {
+          let tacticMult = 1.0;
+          if (moveNumber <= 10) tacticMult = 1.75;
+          else if (moveNumber <= 30) tacticMult = 1.25;
+
+          playerStats.tactics *= tacticMult;
+          enemyStats.tactics *= tacticMult;
+      }
+
+      let playerBaseSum = 0;
+      let enemyBaseSum = 0;
+
+      if (p.name === 'Opening') {
+          // Phase Mastery
+          const defLvl = getSkillLevel(skills, 'op_def_master');
+          const tacLvl = getSkillLevel(skills, 'op_tac_master');
+
+          if (defLvl > 0) playerStats.defense *= (1 + (0.1 * defLvl));
+          if (tacLvl > 0) playerStats.tactics *= (1 + (0.1 * tacLvl));
+
+          // Instinct Focus
+          const instDefLvl = getSkillLevel(skills, 'inst_def_op');
+          const instTacLvl = getSkillLevel(skills, 'inst_tac_op');
+
+          if (instDefLvl > 0) playerStats.defense *= (1 + (0.01 * instDefLvl));
+          if (instTacLvl > 0) playerStats.tactics *= (1 + (0.01 * instTacLvl));
+
+          // Debuff: Prepared Novelty
+          const noveltyLvl = getSkillLevel(skills, 'op_novelty');
+          if (noveltyLvl > 0) {
+              enemyStats.opening *= (1 - (0.03 * noveltyLvl));
+          }
+
+          // Stats
+          playerBaseSum = playerStats.opening + (playerStats.tactics * 0.2);
+          enemyBaseSum = enemyStats.opening + (enemyStats.tactics * 0.2);
+
+      } else if (p.name === 'Midgame') {
+          // Phase Mastery
+          const defLvl = getSkillLevel(skills, 'mid_def_master');
+          const tacLvl = getSkillLevel(skills, 'mid_tac_master');
+
+          if (defLvl > 0) playerStats.defense *= (1 + (0.1 * defLvl));
+          if (tacLvl > 0) playerStats.tactics *= (1 + (0.1 * tacLvl));
+
+          // Instinct Focus
+          const instDefLvl = getSkillLevel(skills, 'inst_def_mid');
+          const instTacLvl = getSkillLevel(skills, 'inst_tac_mid');
+
+          if (instDefLvl > 0) playerStats.defense *= (1 + (0.01 * instDefLvl));
+          if (instTacLvl > 0) playerStats.tactics *= (1 + (0.01 * instTacLvl));
+
+          // Debuff: Tactical Cloud
+          const cloudLvl = getSkillLevel(skills, 'mid_cloud');
+          if (cloudLvl > 0) {
+              enemyStats.tactics *= (1 - (0.03 * cloudLvl));
+          }
+
+          // Stats
+          playerBaseSum = playerStats.midgame + (playerStats.tactics * 0.8);
+          enemyBaseSum = enemyStats.midgame + (enemyStats.tactics * 0.8);
+
+      } else { // Endgame
+          // Phase Mastery
+          const defLvl = getSkillLevel(skills, 'end_def_master');
+          const tacLvl = getSkillLevel(skills, 'end_tac_master');
+
+          if (defLvl > 0) playerStats.defense *= (1 + (0.1 * defLvl));
+          if (tacLvl > 0) playerStats.tactics *= (1 + (0.1 * tacLvl));
+
+          // Instinct Focus
+          const instDefLvl = getSkillLevel(skills, 'inst_def_end');
+          const instTacLvl = getSkillLevel(skills, 'inst_tac_end');
+
+          if (instDefLvl > 0) playerStats.defense *= (1 + (0.01 * instDefLvl));
+          if (instTacLvl > 0) playerStats.tactics *= (1 + (0.01 * instTacLvl));
+
+          // Debuff: Tablebase Memory
+          const tablebaseLvl = getSkillLevel(skills, 'end_tablebase');
+          if (tablebaseLvl > 0) {
+              enemyStats.defense *= (1 - (0.03 * tablebaseLvl));
+          }
+
+          // Zugzwang (if move > 30)
+          const zugzwangLvl = getSkillLevel(skills, 'end_zugzwang');
+          if (zugzwangLvl > 0 && moveNumber > 30) {
+              const decay = 0.01 * zugzwangLvl * (moveNumber - 30);
+              const multiplier = Math.max(0, 1.0 - decay);
+              enemyStats.endgame *= multiplier;
+              enemyStats.tactics *= multiplier;
+          }
+
+          // Stats
+          playerBaseSum = playerStats.endgame + (playerStats.tactics * 1.5);
+          enemyBaseSum = enemyStats.endgame + (enemyStats.tactics * 1.5);
+      }
+
+      // Skill: Deep Blue
+      if (skills.deep_blue) {
+          playerBaseSum *= Math.pow(1.02, moveNumber);
+      }
+
+      // Skill: Iron Curtain (Attack Reduction)
+      if (skills.iron_curtain) {
+          playerBaseSum *= 0.5;
+      }
+
+      // Skill: Time Trouble (Endgame only really)
+      if (skills.time_trouble && moveNumber > 35) {
+          const dropOff = 1 - (0.04 * (moveNumber - 35));
+          enemyBaseSum *= Math.max(0, dropOff);
+      }
+
+      result.player[p.name] = playerBaseSum;
+      result.enemy[p.name] = enemyBaseSum;
+  });
+
+  return result;
+};
