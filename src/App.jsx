@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useGameState } from './hooks/useGameState';
-import { calculateMove, PHASES, getPhaseConfig } from './logic/simulation';
+import { calculateMove, PHASES, getPhaseConfig, simulateGame } from './logic/simulation';
 import { StatsPanel, StatsHeader } from './components/StatsPanel';
 import { ArenaPanel } from './components/ArenaPanel';
 import { LogsPanel } from './components/LogsPanel';
@@ -11,6 +11,19 @@ import { useIsMobile } from './hooks/useIsMobile';
 import { MobileLayout } from './components/MobileLayout';
 import { SettingsModal } from './components/SettingsModal';
 import { Settings } from 'lucide-react';
+import { TOURNAMENT_CONFIG, TIERS_PER_TOURNAMENT } from './logic/tournaments';
+import { GAME_MODES } from './logic/gameModes';
+
+// Helper: Calculate Total Tier Score (0-N)
+const getTierScore = (rankData) => {
+    if (!rankData) return 0;
+    if (typeof rankData === 'number') {
+        // Legacy: rankData is wins + 1. Approximate tier.
+        return Math.floor((rankData - 1) / 10); // Only returns Tier index (0-9)
+        // Wait, legacy doesn't capture Tournament Index. Assuming T0.
+    }
+    return (rankData.tournamentIndex * TIERS_PER_TOURNAMENT) + rankData.tierIndex;
+};
 
 const DesktopLayout = ({
     state,
@@ -20,15 +33,19 @@ const DesktopLayout = ({
     handleStartTournament,
     logs,
     activeTab,
-    setActiveTab
+    setActiveTab,
+    canSkip,
+    onSkip,
+    opacityState
 }) => {
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-black text-gray-100 font-sans selection:bg-blue-500 selection:text-white p-2 sm:p-4 overflow-hidden relative">
-      {/* Settings Button (Desktop) */}
+      {/* Settings Button (Desktop) - Fades in focus mode */}
       <button
           onClick={() => setSettingsOpen(true)}
+          style={{ opacity: opacityState.peripheral, pointerEvents: opacityState.peripheral === 0 ? 'none' : 'auto', transition: 'opacity 1s ease' }}
           className="fixed top-4 right-4 z-50 p-2 text-gray-500 hover:text-white bg-gray-900/80 backdrop-blur rounded-lg border border-gray-700 hover:border-gray-500 transition-all shadow-xl"
       >
           <Settings size={20} />
@@ -43,8 +60,11 @@ const DesktopLayout = ({
 
       <div className="max-w-7xl mx-auto h-[95vh] grid grid-cols-1 lg:grid-cols-12 gap-4">
 
-        {/* Left Panel: Upgrades & Skills (3 cols) */}
-        <div className="lg:col-span-3 h-full flex flex-col overflow-hidden bg-gray-900 rounded-xl border border-gray-800 shadow-2xl">
+        {/* Left Panel: Upgrades & Skills (3 cols) - Fades in focus mode */}
+        <div
+            style={{ opacity: opacityState.peripheral, transition: 'opacity 1s ease' }}
+            className="lg:col-span-3 h-full flex flex-col overflow-hidden bg-gray-900 rounded-xl border border-gray-800 shadow-2xl"
+        >
            <div className="flex border-b border-gray-700 shrink-0">
                <button
                   onClick={() => setActiveTab('stats')}
@@ -108,11 +128,16 @@ const DesktopLayout = ({
             onStartTournament={handleStartTournament}
             stats={state.stats}
             skills={state.skills}
+            canSkip={canSkip}
+            onSkip={onSkip}
           />
         </div>
 
-        {/* Right Panel: Logs (3 cols) */}
-        <div className="lg:col-span-3 h-full overflow-hidden">
+        {/* Right Panel: Logs (3 cols) - Fades in focus mode */}
+        <div
+            style={{ opacity: opacityState.peripheral, transition: 'opacity 1s ease' }}
+            className="lg:col-span-3 h-full overflow-hidden"
+        >
           <LogsPanel logs={logs} />
         </div>
 
@@ -144,27 +169,49 @@ function App() {
     phase: '',
     result: null, // 'win' | 'loss' | 'draw'
     phase1Won: false,
-    move11Eval: 0
+    move11Eval: 0,
+    delta: 0,
+    MaxClamp: 0,
+    sacrificeStage: null,
+    matchHistory: []
   });
+  
+  const [playbackIndex, setPlaybackIndex] = useState(-1);
   const [logs, setLogs] = useState([]);
-  
-  // Ref to hold the current simulation state to access inside interval
-  const simulationStateRef = useRef(simulationState);
 
-  // Update ref whenever state changes
-  useEffect(() => {
-    simulationStateRef.current = simulationState;
-  }, [simulationState]);
-  
-  // Ref for the simulation interval
-  const simulationInterval = useRef(null);
+  // Calculate Skip Eligibility
+  const canSkip = useMemo(() => {
+      if (!state.tournament.active) return false;
 
-  // Start Tournament Handler (Updated for Modes)
+      // Calculate Max Global Tier
+      let maxGlobal = 0;
+      GAME_MODES.forEach(m => {
+          const score = getTierScore(state.tournament.ranks[m.id]);
+          if (score > maxGlobal) maxGlobal = score;
+      });
+
+      const currentScore = getTierScore(state.tournament.ranks[state.tournament.activeMode]);
+
+      // "2 tiers below".
+      // If Max is T5 (Index 4). Current is T3 (Index 2). 2 <= 4 - 2. True.
+      return currentScore <= (maxGlobal - 2);
+  }, [state.tournament.active, state.tournament.activeMode, state.tournament.ranks]);
+
+  const handleSkip = useCallback(() => {
+      if (canSkip && simulationState.matchHistory.length > 0) {
+          setPlaybackIndex(simulationState.matchHistory.length - 1);
+          setSimulationState(prev => ({ ...prev, sacrificeStage: null }));
+      }
+  }, [canSkip, simulationState.matchHistory]);
+
+  // Start Tournament Handler (Playback)
   const handleStartTournament = useCallback((mode) => {
     // Check for Gambiteer skill
     const startEval = state.skills['gambiteer'] ? -0.5 : 0.3;
 
-    // Reset local simulation state
+    // Run Full Simulation
+    const history = simulateGame(state.stats, state.tournament.nextOpponents[mode].stats, state.skills, mode);
+
     const initialState = {
       evalBar: startEval,
       moveNumber: 0,
@@ -174,119 +221,138 @@ function App() {
       phase2Won: false,
       move11Eval: 0,
       sacrificesCount: 0,
-      hasSacrificed: false // Deprecated but kept for safety
+      hasSacrificed: false,
+      delta: 0,
+      MaxClamp: 0,
+      sacrificeStage: null,
+      matchHistory: history
     };
+
     setSimulationState(initialState);
-    simulationStateRef.current = initialState;
     setLogs([]);
+    setPlaybackIndex(0);
     
-    // Update global state - just pass mode, opponent is pre-generated
+    // Update global state
     actions.startTournament(mode);
-  }, [actions, state.skills]);
+  }, [actions, state.skills, state.stats, state.tournament.nextOpponents]);
 
-  // Simulation Loop
+  // Playback Loop
   useEffect(() => {
-    if (state.tournament.active && !simulationState.result) {
-      simulationInterval.current = setInterval(() => {
-        const currentSimState = simulationStateRef.current;
-        
-        // Safety check to ensure we don't simulate on a finished game
-        if (currentSimState.result || !state.tournament.active) {
-            clearInterval(simulationInterval.current);
-            return;
-        }
+    if (!state.tournament.active || !simulationState.matchHistory.length) return;
 
-        const nextMove = currentSimState.moveNumber + 1;
-        const phaseConfig = getPhaseConfig(state.skills);
-        
-        // Calculate the move result
-        const moveResult = calculateMove(
-          nextMove,
-          state.stats,
-          state.tournament.opponentStats.stats,
-          currentSimState.evalBar,
-          state.skills,
-          currentSimState.phase1Won,
-          currentSimState.move11Eval,
-          state.tournament.activeMode, // Pass the active mode
-          currentSimState.sacrificesCount, // Pass sacrifice count
-          phaseConfig,
-          currentSimState.phase2Won
-        );
-        
-        // Construct Log Message
-        const swingMsg = moveResult.sacrificeSwing !== 0 
-          ? ` (Swing: ${moveResult.sacrificeSwing > 0 ? '+' : ''}${moveResult.sacrificeSwing.toFixed(2)})` 
-          : '';
-        const logMsg = `Delta: ${moveResult.delta > 0 ? '+' : ''}${moveResult.delta.toFixed(2)}${swingMsg}. Eval: ${moveResult.newEval.toFixed(2)}`;
-        
-        // Update Logs
-        setLogs(prevLogs => [...prevLogs, { move: nextMove, message: moveResult.logMessage || logMsg }]);
-        
-        let nextPhase1Won = currentSimState.phase1Won;
-        let nextPhase2Won = currentSimState.phase2Won;
-        let nextMove11Eval = currentSimState.move11Eval;
-        
-        // Logic Triggers for Skill Conditions
-        // Check Phase 1 Win (At Opening End)
-        if (nextMove === phaseConfig.openingEnd) {
-            if (moveResult.newEval > 0) {
-                nextPhase1Won = true;
-            }
-        }
-        // Check Phase 2 Win (At Midgame End)
-        if (nextMove === phaseConfig.midgameEnd) {
-             if (moveResult.newEval > 0) {
-                 nextPhase2Won = true;
-             }
-        }
-
-        // Capture Move 11 Eval for Counter-Play (Start of Midgame)
-        if (nextMove === (phaseConfig.openingEnd + 1)) {
-            nextMove11Eval = moveResult.newEval;
-        }
-
-        // Brilliant Bounty Trigger
-        if (moveResult.triggerBrilliantBounty) {
-            actions.triggerSacrificeBonus();
-        }
-
-        // Check if game ended
-        if (moveResult.result) {
-          clearInterval(simulationInterval.current);
-          actions.endTournament(moveResult.result, nextMove);
-          setSimulationState(prev => ({
-            ...prev,
-            evalBar: moveResult.newEval,
-            moveNumber: nextMove,
-            phase: moveResult.phase,
-            result: moveResult.result,
-            phase1Won: nextPhase1Won,
-            phase2Won: nextPhase2Won,
-            move11Eval: nextMove11Eval,
-            sacrificesCount: moveResult.sacrificesCount,
-            hasSacrificed: moveResult.hasSacrificed
-          }));
-        } else {
-            setSimulationState(prev => ({
-                ...prev,
-                evalBar: moveResult.newEval,
-                moveNumber: nextMove,
-                phase: moveResult.phase,
-                phase1Won: nextPhase1Won,
-                phase2Won: nextPhase2Won,
-                move11Eval: nextMove11Eval,
-                sacrificesCount: moveResult.sacrificesCount,
-                hasSacrificed: moveResult.hasSacrificed
-            }));
-        }
-      }, 500); // 0.5s per move
+    // Check if finished or not started
+    if (playbackIndex < 0 || playbackIndex >= simulationState.matchHistory.length) {
+         return;
     }
 
-    return () => {
-      if (simulationInterval.current) clearInterval(simulationInterval.current);
-    };
-  }, [state.tournament.active, state.tournament.opponentStats, state.tournament.activeMode, state.stats, state.skills, actions]); // Dependencies
+    const frame = simulationState.matchHistory[playbackIndex];
+
+    // Log Logic (Only add log if it's a new frame index)
+    // We can rely on playbackIndex changing.
+
+    // Sacrifice Handling
+    if (frame.hasSacrificed) {
+         // Logic to handle the sequence
+         if (simulationState.sacrificeStage === null) {
+             setSimulationState(prev => ({ ...prev, sacrificeStage: 'drama' }));
+
+             // 1. Drama (1.5s)
+             setTimeout(() => {
+                 const success = frame.sacrificeSwing > 0;
+
+                 // 2. Reveal (Update Board)
+                 setSimulationState(prev => ({
+                     ...prev,
+                     sacrificeStage: success ? 'success' : 'fail',
+                     evalBar: frame.newEval,
+                     moveNumber: frame.moveNumber,
+                     phase: frame.phase,
+                     delta: frame.delta,
+                     MaxClamp: frame.MaxClamp
+                 }));
+
+                 // Log here
+                 const swingMsg = frame.sacrificeSwing !== 0
+                    ? ` (Swing: ${frame.sacrificeSwing > 0 ? '+' : ''}${frame.sacrificeSwing.toFixed(2)})`
+                    : '';
+                 const logMsg = `Delta: ${frame.delta > 0 ? '+' : ''}${frame.delta.toFixed(2)}${swingMsg}. Eval: ${frame.newEval.toFixed(2)}`;
+                 setLogs(prev => [...prev, { move: frame.moveNumber, message: frame.logMessage || logMsg }]);
+
+                 // 3. Finish (2s)
+                 setTimeout(() => {
+                     setSimulationState(prev => ({ ...prev, sacrificeStage: null }));
+                     // If result, don't increment, just process result
+                     if (frame.result) {
+                         actions.endTournament(frame.result, frame.moveNumber);
+                         setSimulationState(prev => ({ ...prev, result: frame.result }));
+                         // setPlaybackIndex(prev => prev + 1); // Will go out of bounds, effectively stop
+                         setPlaybackIndex(simulationState.matchHistory.length); // Mark done
+                     } else {
+                         setPlaybackIndex(prev => prev + 1);
+                     }
+                 }, 2000);
+             }, 1500);
+             return; // Stop normal flow
+         } else {
+             // Waiting for timeouts
+             return;
+         }
+    }
+
+    // Normal Move
+    setSimulationState(prev => ({
+        ...prev,
+        evalBar: frame.newEval,
+        moveNumber: frame.moveNumber,
+        phase: frame.phase,
+        result: frame.result, // will be null unless end
+        delta: frame.delta,
+        MaxClamp: frame.MaxClamp
+    }));
+
+    // Log
+    const swingMsg = frame.sacrificeSwing !== 0
+       ? ` (Swing: ${frame.sacrificeSwing > 0 ? '+' : ''}${frame.sacrificeSwing.toFixed(2)})`
+       : '';
+    const logMsg = `Delta: ${frame.delta > 0 ? '+' : ''}${frame.delta.toFixed(2)}${swingMsg}. Eval: ${frame.newEval.toFixed(2)}`;
+    setLogs(prev => [...prev, { move: frame.moveNumber, message: frame.logMessage || logMsg }]);
+
+    // Trigger Brilliant Bounty
+    if (frame.triggerBrilliantBounty) {
+        actions.triggerSacrificeBonus();
+    }
+
+    // Check End Game
+    if (frame.result) {
+        actions.endTournament(frame.result, frame.moveNumber);
+        setPlaybackIndex(simulationState.matchHistory.length); // Mark done
+        return;
+    }
+
+    // Schedule Next
+    const timer = setTimeout(() => {
+        setPlaybackIndex(prev => prev + 1);
+    }, 500); // Standard Speed
+
+    return () => clearTimeout(timer);
+
+  }, [playbackIndex, state.tournament.active]); // Only depend on index + active check
+
+  // Opacity State Calculation
+  const opacityState = useMemo(() => {
+      const { moveNumber, phase } = simulationState;
+      if (!state.tournament.active) return { peripheral: 1.0 };
+
+      if (phase === 'Opening') return { peripheral: 1.0 };
+      if (phase === 'Endgame') return { peripheral: 0.0 };
+
+      // Midgame: 11-30.
+      // 11 -> 1.0. 30 -> 0.2?
+      const progress = (moveNumber - 10) / 20; // 0.05 to 1.0
+      const op = 1.0 - (progress * 0.8);
+      return { peripheral: Math.max(0.2, op) };
+  }, [simulationState.moveNumber, simulationState.phase, state.tournament.active]);
+
 
   // Render logic
   if (isMobile) {
@@ -299,6 +365,9 @@ function App() {
                 simulationState={simulationState}
                 onStartTournament={handleStartTournament}
                 logs={logs}
+                canSkip={canSkip}
+                onSkip={handleSkip}
+                opacityState={opacityState}
             />
             <OfflineModal
                 isOpen={state.isOfflineLoading || !!state.offlineReport}
@@ -320,6 +389,9 @@ function App() {
         logs={logs}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
+        canSkip={canSkip}
+        onSkip={handleSkip}
+        opacityState={opacityState}
     />
   );
 }
