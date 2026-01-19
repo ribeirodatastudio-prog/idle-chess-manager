@@ -39,6 +39,7 @@ const DesktopLayout = ({
     opacityState
 }) => {
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [showLogs, setShowLogs] = useState(false);
 
   return (
     <div className="min-h-screen bg-black text-gray-100 font-sans selection:bg-blue-500 selection:text-white p-2 sm:p-4 overflow-hidden relative">
@@ -121,7 +122,7 @@ const DesktopLayout = ({
         </div>
 
         {/* Center Panel: Arena (6 cols) */}
-        <div className="lg:col-span-6 h-full overflow-hidden">
+        <div className={`${showLogs ? 'lg:col-span-6' : 'lg:col-span-9'} h-full overflow-hidden transition-all duration-300`}>
           <ArenaPanel
             tournament={state.tournament}
             simulationState={simulationState}
@@ -130,16 +131,20 @@ const DesktopLayout = ({
             skills={state.skills}
             canSkip={canSkip}
             onSkip={onSkip}
+            showLogs={showLogs}
+            setShowLogs={setShowLogs}
           />
         </div>
 
         {/* Right Panel: Logs (3 cols) - Fades in focus mode */}
-        <div
-            style={{ opacity: opacityState.peripheral, transition: 'opacity 1s ease' }}
-            className="lg:col-span-3 h-full overflow-hidden"
-        >
-          <LogsPanel logs={logs} />
-        </div>
+        {showLogs && (
+            <div
+                style={{ opacity: opacityState.peripheral, transition: 'opacity 1s ease' }}
+                className="lg:col-span-3 h-full overflow-hidden animate-slide-in-right"
+            >
+              <LogsPanel logs={logs} />
+            </div>
+        )}
 
       </div>
 
