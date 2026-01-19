@@ -173,6 +173,7 @@ function App() {
     delta: 0,
     MaxClamp: 0,
     sacrificeStage: null,
+    sacrificeInitiator: null,
     matchHistory: []
   });
   
@@ -200,7 +201,7 @@ function App() {
   const handleSkip = useCallback(() => {
       if (canSkip && simulationState.matchHistory.length > 0) {
           setPlaybackIndex(simulationState.matchHistory.length - 1);
-          setSimulationState(prev => ({ ...prev, sacrificeStage: null }));
+          setSimulationState(prev => ({ ...prev, sacrificeStage: null, sacrificeInitiator: null }));
       }
   }, [canSkip, simulationState.matchHistory]);
 
@@ -225,6 +226,7 @@ function App() {
       delta: 0,
       MaxClamp: 0,
       sacrificeStage: null,
+      sacrificeInitiator: null,
       matchHistory: history
     };
 
@@ -254,7 +256,11 @@ function App() {
     if (frame.hasSacrificed) {
          // Logic to handle the sequence
          if (simulationState.sacrificeStage === null) {
-             setSimulationState(prev => ({ ...prev, sacrificeStage: 'drama' }));
+             setSimulationState(prev => ({
+                 ...prev,
+                 sacrificeStage: 'drama',
+                 sacrificeInitiator: frame.sacrificeInitiator
+             }));
 
              // 1. Drama (1.5s)
              setTimeout(() => {
@@ -268,7 +274,8 @@ function App() {
                      moveNumber: frame.moveNumber,
                      phase: frame.phase,
                      delta: frame.delta,
-                     MaxClamp: frame.MaxClamp
+                     MaxClamp: frame.MaxClamp,
+                     sacrificeInitiator: frame.sacrificeInitiator
                  }));
 
                  // Log here
@@ -280,7 +287,7 @@ function App() {
 
                  // 3. Finish (2s)
                  setTimeout(() => {
-                     setSimulationState(prev => ({ ...prev, sacrificeStage: null }));
+                     setSimulationState(prev => ({ ...prev, sacrificeStage: null, sacrificeInitiator: null }));
                      // If result, don't increment, just process result
                      if (frame.result) {
                          actions.endTournament(frame.result, frame.moveNumber);

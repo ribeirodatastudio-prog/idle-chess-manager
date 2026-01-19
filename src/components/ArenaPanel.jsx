@@ -3,7 +3,7 @@ import { TOURNAMENT_CONFIG } from '../logic/tournaments';
 import { GAME_MODES } from '../logic/gameModes';
 import { getEffectivePhaseStats } from '../logic/simulation';
 import { ChessBoardVisualizer } from './ChessBoardVisualizer';
-import { Sword } from 'lucide-react';
+import { Sword, Shield } from 'lucide-react';
 
 // New Component: MoveFeedback
 const MoveFeedback = ({ delta, maxClamp }) => {
@@ -35,37 +35,62 @@ const MoveFeedback = ({ delta, maxClamp }) => {
 };
 
 // New Component: SacrificeOverlay
-const SacrificeOverlay = ({ stage }) => { // stage: 'drama', 'success', 'fail'
+const SacrificeOverlay = ({ stage, initiator }) => { // stage: 'drama', 'success', 'fail'
     if (!stage) return null;
+
+    const isPlayer = initiator === 'player';
 
     return (
         <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm animate-fade-in rounded-lg">
             {stage === 'drama' && (
                  <>
-                    <div className="text-purple-500 animate-pulse mb-4">
+                    <div className={`${isPlayer ? 'text-purple-500' : 'text-red-600'} animate-pulse mb-4`}>
                         <Sword size={64} />
                     </div>
-                    <h2 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600 tracking-widest animate-pulse">
-                        SACRIFICE
+                    <h2 className={`text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r ${isPlayer ? 'from-purple-400 to-pink-600' : 'from-red-600 to-red-900'} tracking-widest animate-pulse`}>
+                        {isPlayer ? 'SACRIFICE' : 'ENEMY SACRIFICE!'}
                     </h2>
                  </>
             )}
 
             {stage === 'success' && (
                  <div className="animate-bounce text-center">
-                    <h2 className="text-5xl font-black text-yellow-400 drop-shadow-[0_0_20px_rgba(250,204,21,1)] mb-2">
-                        SUCCESS!!
-                    </h2>
-                    <p className="text-white font-mono">Brilliant!</p>
+                    {isPlayer ? (
+                        <>
+                            <h2 className="text-5xl font-black text-yellow-400 drop-shadow-[0_0_20px_rgba(250,204,21,1)] mb-2">
+                                BRILLIANT!!
+                            </h2>
+                            <p className="text-white font-mono">Immortal Game!</p>
+                        </>
+                    ) : (
+                        <>
+                            <div className="text-green-500 mb-2 flex justify-center"><Shield size={64} /></div>
+                            <h2 className="text-5xl font-black text-green-400 drop-shadow-[0_0_20px_rgba(74,222,128,1)] mb-2">
+                                DENIED!
+                            </h2>
+                            <p className="text-green-200 font-mono">Solid as a Rock</p>
+                        </>
+                    )}
                  </div>
             )}
 
             {stage === 'fail' && (
                  <div className="animate-shake text-center">
-                    <h2 className="text-5xl font-black text-red-600 drop-shadow-[0_0_20px_rgba(220,38,38,1)] mb-2">
-                        REFUTED
-                    </h2>
-                     <p className="text-gray-400 font-mono">Blunder...</p>
+                    {isPlayer ? (
+                        <>
+                            <h2 className="text-5xl font-black text-red-600 drop-shadow-[0_0_20px_rgba(220,38,38,1)] mb-2">
+                                UNSOUND...
+                            </h2>
+                            <p className="text-gray-400 font-mono">Refuted.</p>
+                        </>
+                    ) : (
+                        <>
+                            <h2 className="text-5xl font-black text-red-600 drop-shadow-[0_0_20px_rgba(220,38,38,1)] mb-2">
+                                DEVASTATING!
+                            </h2>
+                            <p className="text-red-400 font-mono">Crushing Attack!</p>
+                        </>
+                    )}
                  </div>
             )}
         </div>
@@ -138,7 +163,11 @@ export const ArenaPanel = memo(({
   onSkip
 }) => {
   const { active, ranks, opponentStats } = tournament;
-  const { evalBar, moveNumber, phase, result, delta, MaxClamp, sacrificeStage } = simulationState;
+  const { evalBar, moveNumber, phase, result, delta, MaxClamp, sacrificeStage, sacrificeInitiator } = simulationState;
+
+  // Calculate specific bad news condition for screen shake
+  const isEnemyBadNews = (sacrificeStage === 'drama' && sacrificeInitiator === 'enemy') ||
+                         (sacrificeStage === 'fail' && sacrificeInitiator === 'enemy');
 
   // Local state for mode selection (only when inactive)
   const [selectedMode, setSelectedMode] = useState('bullet'); // 'bullet', 'blitz', 'rapid', 'classical', 'chess960'
@@ -192,7 +221,7 @@ export const ArenaPanel = memo(({
   };
 
   return (
-    <div className="bg-gray-900 p-4 rounded-xl shadow-2xl h-full flex flex-col border border-gray-800 relative overflow-hidden">
+    <div className={`bg-gray-900 p-4 rounded-xl shadow-2xl h-full flex flex-col border border-gray-800 relative overflow-hidden ${isEnemyBadNews ? 'animate-shake' : ''}`}>
       {/* Background Visuals */}
       <div className="absolute inset-0 opacity-5 pointer-events-none bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-gray-700 via-gray-900 to-black"></div>
 
@@ -368,7 +397,7 @@ export const ArenaPanel = memo(({
           </div>
         ) : (
           <div className="w-full max-w-md bg-gray-800 p-4 sm:p-6 rounded-lg border border-gray-700 shadow-xl relative">
-            <SacrificeOverlay stage={sacrificeStage} />
+            <SacrificeOverlay stage={sacrificeStage} initiator={sacrificeInitiator} />
             <MoveFeedback delta={delta} maxClamp={MaxClamp} />
 
             <div className="flex justify-between items-center mb-4 border-b border-gray-700 pb-4">
