@@ -74,6 +74,60 @@ const SacrificeOverlay = ({ stage }) => { // stage: 'drama', 'success', 'fail'
 
 const MATCH_INDICATORS = [0, 1, 2];
 
+const ASSESSMENT_CONFIG = {
+    hugeDisadvantage: {
+        texts: ["Hopeless", "Blunder Prone", "Suicidal"],
+        color: "text-red-600"
+    },
+    disadvantage: {
+        texts: ["Dubious", "Under Pressure", "Cramped"],
+        color: "text-orange-500"
+    },
+    even: {
+        texts: ["Equal", "Sharp", "Drawish"],
+        color: "text-gray-300"
+    },
+    advantage: {
+        texts: ["Comfortable", "Promising", "Active"],
+        color: "text-green-400"
+    },
+    hugeAdvantage: {
+        texts: ["Winning", "Dominant", "Crushing"],
+        color: "text-emerald-400"
+    }
+};
+
+const getAssessment = (playerStat, enemyStat) => {
+    if (!enemyStat || enemyStat === 0) {
+        // Fallback for 0 stat (avoid division by zero), treat as Even/Equal
+        const texts = ASSESSMENT_CONFIG.even.texts;
+        return {
+            text: texts[Math.floor(Math.random() * texts.length)],
+            colorClass: ASSESSMENT_CONFIG.even.color
+        };
+    }
+
+    const ratio = playerStat / enemyStat;
+    let config;
+
+    if (ratio < 0.5) {
+        config = ASSESSMENT_CONFIG.hugeDisadvantage;
+    } else if (ratio <= 0.9) {
+        config = ASSESSMENT_CONFIG.disadvantage;
+    } else if (ratio <= 1.1) {
+        config = ASSESSMENT_CONFIG.even;
+    } else if (ratio <= 1.5) {
+        config = ASSESSMENT_CONFIG.advantage;
+    } else {
+        config = ASSESSMENT_CONFIG.hugeAdvantage;
+    }
+
+    return {
+        text: config.texts[Math.floor(Math.random() * config.texts.length)],
+        colorClass: config.color
+    };
+};
+
 export const ArenaPanel = memo(({
   tournament, 
   simulationState, 
@@ -115,6 +169,16 @@ export const ArenaPanel = memo(({
       if (!nextOpponent || active) return null;
       return getEffectivePhaseStats(stats, nextOpponent.stats, skills, selectedMode);
   }, [stats, nextOpponent, skills, selectedMode, active]);
+
+  // Memoize the assessment texts to prevent flickering on re-renders
+  const assessments = useMemo(() => {
+      if (!comparisonStats) return null;
+      return {
+          Opening: getAssessment(comparisonStats.player.Opening, comparisonStats.enemy.Opening),
+          Midgame: getAssessment(comparisonStats.player.Midgame, comparisonStats.enemy.Midgame),
+          Endgame: getAssessment(comparisonStats.player.Endgame, comparisonStats.enemy.Endgame)
+      };
+  }, [comparisonStats]);
 
   // Calculate bar width percentage (0 to 100)
   // Range is -8 to +8 (New Threshold). Total range 16.
@@ -257,16 +321,16 @@ export const ArenaPanel = memo(({
                                 const pVal = comparisonStats.player[phase];
                                 const eVal = comparisonStats.enemy[phase];
                                 const isAdvantage = pVal >= eVal;
-                                const diff = pVal - eVal;
                                 const total = pVal + eVal;
                                 const ratio = total > 0 ? (pVal / total) * 100 : 50;
+                                const assessment = assessments ? assessments[phase] : { text: '-', colorClass: 'text-gray-500' };
 
                                 return (
                                     <div key={phase} className="flex flex-col gap-1">
                                         <div className="flex justify-between text-[10px] uppercase font-bold tracking-wider text-gray-500">
                                             <span>{phase}</span>
-                                            <span className={isAdvantage ? 'text-green-400' : 'text-red-400'}>
-                                                {isAdvantage ? '+' : ''}{diff.toFixed(1)}
+                                            <span className={assessment.colorClass}>
+                                                {assessment.text}
                                             </span>
                                         </div>
                                         <div className="h-2 bg-gray-700 rounded-full overflow-hidden relative">
