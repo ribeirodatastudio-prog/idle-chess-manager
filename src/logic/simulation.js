@@ -12,6 +12,55 @@ export const PHASES = {
 const getRandom = (min, max) => Math.random() * (max - min) + min;
 const lerp = (start, end, t) => start + (end - start) * t;
 
+const SACRIFICE_MODE_RANGES = {
+    classical: { min: 3.0, max: 6.0 },
+    rapid: { min: 2.0, max: 5.0 },
+    blitz: { min: 1.0, max: 4.0 },
+    bullet: { min: 0.5, max: 3.0 },
+    chess960: { min: 3.0, max: 6.0 }
+};
+
+export const calculateSacrificeImpact = (mode, isSuccess, numeratorStat, denominatorStat) => {
+    // Configuration
+    const config = SACRIFICE_MODE_RANGES[mode] || SACRIFICE_MODE_RANGES.rapid;
+    const { min, max } = config;
+
+    // Sanitize Inputs
+    const num = Math.max(0, numeratorStat || 0);
+    const den = Math.max(1, denominatorStat || 1); // Avoid division by zero
+
+    // Calculate Ratio (r)
+    const r = num / den;
+
+    // Calculate Factor (alpha)
+    let alpha = 0;
+    if (r <= 1.0) {
+        alpha = 0;
+    } else if (r >= 2.5) {
+        alpha = 1.0;
+    } else {
+        // Square Root Interpolation
+        // alpha = sqrt( (r - 1.0) / 1.5 )
+        alpha = Math.sqrt((r - 1.0) / 1.5);
+    }
+
+    let val = 0;
+    if (isSuccess) {
+        // Scenario A: Attack Success (Positive Eval)
+        // Base: Min. Bonus: (Max - Min) * Factor.
+        val = min + ((max - min) * alpha);
+    } else {
+        // Scenario B: Mitigation / Failure (Negative Eval)
+        // Base: Max. Mitigation: (Max - Min) * Factor.
+        // Result is negative.
+        const magnitude = max - ((max - min) * alpha);
+        val = -magnitude;
+    }
+
+    // Round to 2 decimals
+    return Math.round(val * 100) / 100;
+};
+
 const getSacrificeModeMultiplier = (mode) => {
     if (mode === 'classical') return 0.6;
     if (mode === 'blitz') return 1.8;
@@ -576,12 +625,23 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
       const roll = Math.random() * 100;
       const isSuccess = roll < successChance;
 
+      // Determine Impact
+      let num, den;
       if (isSuccess) {
-          sacrificeSwing = 5.0;
+          num = playerStats.tactics;
+          den = enemyStats.defense;
+      } else {
+          num = playerStats.defense;
+          den = enemyStats.tactics;
+      }
+
+      const impact = calculateSacrificeImpact(mode, isSuccess, num, den);
+      sacrificeSwing = impact;
+
+      if (isSuccess) {
           logMessage = 'BRILLIANT!! A prepared gambit strikes!';
           if (skills.brilliant_bounty) triggerBrilliantBounty = true;
       } else {
-          sacrificeSwing = -2.0;
           logMessage = 'REFUTED. The gambit was unsound.';
       }
 
@@ -615,21 +675,45 @@ export const calculateMove = (moveNumber, rawPlayerStats, rawEnemyStats, current
             const roll = Math.random() * 100;
             const isSuccess = roll < successChance;
 
+            // Determine Impact using Leverage Formula
+            let num, den;
+            if (isPlayer) {
+                // Player Initiated
+                if (isSuccess) {
+                    num = playerStats.tactics;
+                    den = enemyStats.defense;
+                } else {
+                    // Failure Mitigation: PlayerDefense / EnemyTactics
+                    num = playerStats.defense;
+                    den = enemyStats.tactics;
+                }
+            } else {
+                // Enemy Initiated
+                if (isSuccess) {
+                    // Enemy Success: EnemyTactics / PlayerDefense
+                    num = enemyStats.tactics;
+                    den = playerStats.defense;
+                } else {
+                    // Enemy Failure: EnemyDefense / PlayerTactics
+                    num = enemyStats.defense;
+                    den = playerStats.tactics;
+                }
+            }
+
+            const impact = calculateSacrificeImpact(mode, isSuccess, num, den);
+            sacrificeSwing = isPlayer ? impact : -impact;
+
             if (isPlayer) {
                 if (isSuccess) {
-                    sacrificeSwing = 5.0;
                     logMessage = 'BRILLIANT!! The engine didn\'t see it coming!';
                     if (skills.brilliant_bounty) triggerBrilliantBounty = true;
                 } else {
-                    sacrificeSwing = -2.0;
                     logMessage = 'UNSOUND... The opponent refutes it.';
                 }
             } else {
                 if (isSuccess) {
-                    sacrificeSwing = -5.0;
                     logMessage = 'DEVASTATING! The AI unleashes chaos!';
                 } else {
-                    sacrificeSwing = 2.0;
                     logMessage = 'DENIED! You refuted the attack!';
                 }
             }

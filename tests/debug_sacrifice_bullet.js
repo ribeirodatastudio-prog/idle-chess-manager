@@ -55,11 +55,11 @@ const runTest = () => {
 
         if (result.hasSacrificed) {
             // Check result
-            // Sacrifice Swing +5.0 means success for Player
-            // Sacrifice Swing -2.0 means failure for Player
-            if (result.sacrificeSwing === 5.0) {
+            // Positive Sacrifice Swing means success for Player
+            // Negative Sacrifice Swing means failure for Player
+            if (result.sacrificeSwing > 0) {
                 successCount++;
-            } else if (result.sacrificeSwing === -2.0) {
+            } else if (result.sacrificeSwing < 0) {
                 failCount++;
             }
         }
